@@ -75,7 +75,7 @@ main = do
                           Just n -> n
             system = case Map.lookup "system" (env drv) of
                           Nothing -> ""
-                          Just s -> s <> "-"
+                          Just s -> s <> ":"
         in return (system <> name, drvPath)
 
   g <- foldr (\(_, drv) m -> m >>= \g -> add g drv) (pure empty) drvs
