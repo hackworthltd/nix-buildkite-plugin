@@ -41,7 +41,7 @@ import Nix.Derivation
 import System.Process hiding ( env, system )
 
 -- text
-import Data.Text ( Text, pack, unpack )
+import Data.Text ( Text, isPrefixOf, pack, unpack )
 import qualified Data.Text as T
 import Data.Text.IO ( readFile )
 
@@ -79,7 +79,7 @@ main = do
                           -- derivation name.
                           Nothing -> pack (takeFileName drvPath)
                           Just n -> n
-            system = if name `elem` skipPrefix
+            system = if any (\x -> x `isPrefixOf` name) skipPrefix
                      then ""
                      else case Map.lookup "system" (env drv) of
                             Nothing -> ""
