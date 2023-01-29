@@ -13,7 +13,7 @@ import Algebra.Graph.AdjacencyMap.Algorithm ( reachable )
 import Data.Aeson ( Value(..), (.=), encode, object )
 
 -- attoparsec
-import Data.Attoparsec.Text ( parseOnly )
+import Data.Attoparsec.Text ( parseOnly, sepBy, char, takeWhile1 )
 
 -- base
 import Data.Char
@@ -55,6 +55,22 @@ main = do
     case cmd of
       Nothing -> return []
       Just path -> return $ [ "--post-build-hook", path ]
+
+  agentTags <- do
+    tags <- lookupEnv "AGENT_TAGS"
+    case tags of
+      Nothing -> return mempty
+      Just tags' -> do
+        case parseOnly pairs $ pack tags' of
+          Left err -> error $ "Failed to parse AGENT_TAGS: " ++ err
+          Right pairs' -> return $ Map.fromList pairs'
+        where
+          pairs = pair `sepBy` ","
+          pair = do
+            key <- takeWhile1 (/= '=')
+            _ <- char '='
+            value <- takeWhile1 (/= ',')
+            return (key, value)
 
   -- TODO: this should be made into an option
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
@@ -100,7 +116,10 @@ main = do
             where
               dependencies = map stepify $ filter (`elem` map snd drvs) $ drop 1 $ reachable drvPath g
 
-  Data.ByteString.Lazy.putStr $ encode $ object [ "steps" .= map snd ( sortOn fst steps ) ]
+  Data.ByteString.Lazy.putStr $ encode $ object
+    [ "agents" .= agentTags
+    , "steps" .= map snd ( sortOn fst steps )
+    ]
 
 -- Transform nix platforms into buildkite emoji
 -- See https://github.com/buildkite/emojis
