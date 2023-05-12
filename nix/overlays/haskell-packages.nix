@@ -25,14 +25,7 @@ in
       (
         old:
           {
-            overrides =
-              composeExtensions
-                (old.overrides or (_: _: {}))
-                (
-                  composeExtensions
-                    (packagesFromDirectory { directory = ./haskell-packages; })
-                    configurations
-                );
+            overrides = configurations;
           }
       );
 }
