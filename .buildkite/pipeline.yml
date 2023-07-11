@@ -1,6 +1,13 @@
+agents:
+  public: "true"
+  os: "linux"
+
 steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      hackworthltd/nix:
-        file: jobs.nix
+      - hackworthltd/nix:
+          file: jobs.nix
+
+  - command: nix flake archive .#
+    label: ":nixos: Archive Nix flake inputs"
