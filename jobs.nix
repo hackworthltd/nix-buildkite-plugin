@@ -1,4 +1,1 @@
-let pkgs = import ./nix/pkgs.nix;
-in {
-  nix-buildkite = pkgs.haskellPackages.nix-buildkite;
-}
+(import nix/flake-compat.nix).defaultNix.ciJobs
