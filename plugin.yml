@@ -1,6 +1,6 @@
 name: nix-buildkite
 description: Generates a Buildkite pipeline from a Nix expression
-author: https://github.com/circuithub
+author: https://github.com/hackworthltd
 requirements: []
 configuration:
   properties:

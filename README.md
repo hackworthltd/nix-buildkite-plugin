@@ -1,10 +1,16 @@
-# nix-buildkite-buildkite-plugin [![Build status](https://badge.buildkite.com/7918a1ba68d299f83ccc990292a97fa6eecd251703b2ca9427.svg)](https://buildkite.com/circuithub/nix-buildkite)
+# nix-buildkite-plugin
 
-`nix-buildkite` is a Buildkite plugin that can take a Nix expression that
-describes a set of builds and transforms them into separate Buildkite jobs.
-`nix-buildkite` evaluates Nix to create derivations and then analyses these
-derivations to find a topological ordering that will ensure steps have the
-correct dependencies between them.
+`nix-buildkite-plugin` is a Buildkite plugin that can take a Nix
+expression that describes a set of builds and transforms them into
+separate Buildkite jobs. `nix-buildkite-plugin` evaluates Nix to
+create derivations and then analyses these derivations to find a
+topological ordering that will ensure steps have the correct
+dependencies between them.
+
+Note: this project is a fork of [Circuithub's
+`nix-buildkite-buildkite-plugin``](https://github.com/circuithub/nix-buildkite-buildkite-plugin),
+and we would like to thank them for their work, without which this
+project wouldn't be possible!
 
 # Getting Started
 
@@ -18,11 +24,7 @@ For this example, we'll start by building the `nix-buildkite` project. Our
 `jobs.nix` file is:
 
 ``` nix
-let pkgs = import ./nix/pkgs {};
-in
-{
-  nix-buildkite = pkgs.haskellPackages.nix-buildkite;
-}
+(import nix/flake-compat.nix).defaultNix.ciJobs
 ```
 
 ## `.buildkite/pipeline.yml`
@@ -34,7 +36,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      circuithub/nix-buildkite:
+      hackworthltd/nix:
         file: jobs.nix
 ```
 
@@ -63,7 +65,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      circuithub/nix-buildkite:
+      hackworthltd/nix:
         file: jobs.nix
         post-build-hook: /etc/nix/upload-to-cache.sh
 ```

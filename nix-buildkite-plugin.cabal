@@ -1,9 +1,9 @@
 cabal-version:       2.0
-name:                nix-buildkite
-version:             0.1.0.0
+name:                nix-buildkite-plugin
+version:             0.2.0.0
 license-file:        LICENSE
-author:              CircuitHub
-maintainer:          oliver.charles@circuithub.com
+author:              Hackworth Ltd <src@hackworthltd.com>
+maintainer:          src@hackworthltd.com
 build-type:          Simple
 extra-source-files:  CHANGELOG.md, README.md
 
