@@ -3,10 +3,12 @@ agents:
   os: "linux"
 
 steps:
-  - label: ":sparkles: Lint"
-    plugins:
-      - plugin-linter#v3.2.0:
-          id: hackworthltd/nix
+  # Note: incompatible with NixOS because it looks for /bin/bash
+
+  # - label: ":sparkles: Lint"
+  #   plugins:
+  #     - plugin-linter#v3.2.0:
+  #         id: hackworthltd/nix
 
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
