@@ -3,6 +3,11 @@ agents:
   os: "linux"
 
 steps:
+  - label: ":sparkles: Lint"
+    plugins:
+      - plugin-linter#v3.2.0:
+          id: hackworthltd/nix
+
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:

@@ -23,7 +23,7 @@ attrsets that eventually have leaves that are derivations.
 For this example, we'll start by building the `nix-buildkite` project. Our
 `jobs.nix` file is:
 
-``` nix
+```nix
 (import nix/flake-compat.nix).defaultNix.ciJobs
 ```
 
@@ -31,13 +31,13 @@ For this example, we'll start by building the `nix-buildkite` project. Our
 
 Next, add a `.buildkite/pipeline.yml` file with the following contents:
 
-``` yaml
+```yaml
 steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      hackworthltd/nix:
-        file: jobs.nix
+      - hackworthltd/nix#v1.0.0:
+          file: jobs.nix
 ```
 
 ## Add Your Pipeline
@@ -47,7 +47,7 @@ https://buildkite.com/docs/pipelines/defining-steps#getting-started for details
 on how to do this. Once you have a pipeline created, make sure that the only
 step declared in the pipeline configuration in Buildkite's UI is:
 
-``` yaml
+```yaml
 steps:
   - command: buildkite-agent pipeline upload
     label: ":pipeline:"
@@ -60,14 +60,14 @@ is the name (or path) of an executable that's compatible with Nix's
 [post-build hook
 semantics](https://nixos.org/manual/nix/stable/advanced-topics/post-build-hook.html):
 
-``` yaml
+```yaml
 steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      hackworthltd/nix:
-        file: jobs.nix
-        post-build-hook: /etc/nix/upload-to-cache.sh
+      - hackworthltd/nix#v1.0.0:
+          file: jobs.nix
+          post-build-hook: /etc/nix/upload-to-cache.sh
 ```
 
 When specified, the plugin will run this hook after its
