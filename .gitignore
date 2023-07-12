@@ -25,3 +25,5 @@ cabal.project.local~
 # Nix
 result*
 
+# direnv
+.envrc
