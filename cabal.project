@@ -1,0 +1,9 @@
+index-state: 2023-07-12T00:00:00Z
+
+packages:
+  .
+
+optimization: 0
+
+package *
+  ghc-options: -fwrite-ide-info
