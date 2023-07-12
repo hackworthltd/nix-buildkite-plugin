@@ -53,7 +53,7 @@ main = do
     cmd <- lookupEnv "POST_BUILD_HOOK"
     case cmd of
       Nothing -> return []
-      Just path -> return $ ["--post-build-hook", path]
+      Just path -> return ["--post-build-hook", path]
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
@@ -82,24 +82,27 @@ main = do
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
   drvs <- for inputDrvPaths \drvPath -> do
-    fmap (parseOnly parseDerivation) (readFile drvPath) >>= \case
-      Left _ ->
-        -- We couldn't parse the derivation to get a name, so we'll just use the
-        -- derivation name.
-        return (pack (takeFileName drvPath), drvPath)
-      Right drv ->
-        let name = case Map.lookup "name" (env drv) of
-              -- There was no 'name' environment variable, so we'll just use the
-              -- derivation name.
-              Nothing -> pack (takeFileName drvPath)
-              Just n -> n
-            system =
-              if any (\x -> x `isPrefixOf` name) skipPrefix
-                then ""
-                else case Map.lookup "system" (env drv) of
-                  Nothing -> ""
-                  Just s -> emojify s <> ":"
-         in return (system <> name, drvPath)
+    readFile drvPath
+      >>= ( \case
+              Left _ ->
+                -- We couldn't parse the derivation to get a name, so we'll just use the
+                -- derivation name.
+                return (pack (takeFileName drvPath), drvPath)
+              Right drv ->
+                let name = case Map.lookup "name" (env drv) of
+                      -- There was no 'name' environment variable, so we'll just use the
+                      -- derivation name.
+                      Nothing -> pack (takeFileName drvPath)
+                      Just n -> n
+                    system =
+                      if any (`isPrefixOf` name) skipPrefix
+                        then ""
+                        else case Map.lookup "system" (env drv) of
+                          Nothing -> ""
+                          Just s -> emojify s <> ":"
+                 in return (system <> name, drvPath)
+          )
+        . parseOnly parseDerivation
 
   g <- foldr (\(_, drv) m -> m >>= \g -> add g drv) (pure empty) drvs
 
@@ -152,12 +155,15 @@ add g drvPath =
   if hasVertex drvPath g
     then return g
     else
-      fmap (parseOnly parseDerivation) (readFile drvPath) >>= \case
-        Left _ ->
-          return g
-        Right Derivation{inputDrvs} -> do
-          deps <- foldr (\dep m -> m >>= \g' -> add g' dep) (pure g) (Map.keys inputDrvs)
+      readFile drvPath
+        >>= ( \case
+                Left _ ->
+                  return g
+                Right Derivation{inputDrvs} -> do
+                  deps <- foldr (\dep m -> m >>= \g' -> add g' dep) (pure g) (Map.keys inputDrvs)
 
-          let g' = overlays (edge drvPath <$> Map.keys inputDrvs)
+                  let g' = overlays (edge drvPath <$> Map.keys inputDrvs)
 
-          return $ overlay deps g'
+                  return $ overlay deps g'
+            )
+          . parseOnly parseDerivation
