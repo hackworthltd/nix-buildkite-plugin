@@ -7,6 +7,8 @@
     # We use this for some convenience functions only.
     hacknix.url = "github:hackworthltd/hacknix";
 
+    pre-commit-hooks-nix.url = "github:cachix/pre-commit-hooks.nix";
+
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
 
@@ -16,6 +18,7 @@
     # better haskell.nix cache hits.
     nixpkgs.follows = "haskell-nix/nixpkgs-unstable";
     hacknix.inputs.nixpkgs.follows = "nixpkgs";
+    pre-commit-hooks-nix.inputs.nixpkgs.follows = "nixpkgs";
   };
 
   outputs = inputs@ { flake-parts, ... }:
@@ -35,6 +38,7 @@
       debug = true;
 
       imports = [
+        inputs.pre-commit-hooks-nix.flakeModule
       ];
 
       systems = [ "x86_64-linux" "aarch64-darwin" ];
@@ -101,6 +105,45 @@
                 allowBroken = true;
               };
               overlays = allOverlays;
+            };
+
+          pre-commit =
+            let
+              # Override the default nix-pre-commit-hooks tools with the version
+              # we're using.
+              haskellNixTools = pkgs.haskell-nix.tools ghcVersion {
+                hlint = "latest";
+                fourmolu = fourmoluVersion;
+                cabal-fmt = "latest";
+              };
+            in
+            {
+              check.enable = true;
+              settings = {
+                src = ./.;
+                hooks = {
+                  hlint.enable = true;
+                  fourmolu.enable = true;
+                  cabal-fmt.enable = true;
+                  nixpkgs-fmt.enable = true;
+                  shellcheck.enable = true;
+                  actionlint.enable = true;
+                };
+
+                # We need to force these due to
+                #
+                # https://github.com/cachix/pre-commit-hooks.nix/issues/204
+                tools = {
+                  nixpkgs-fmt = pkgs.lib.mkForce pkgs.nixpkgs-fmt;
+                  hlint = pkgs.lib.mkForce haskellNixTools.hlint;
+                  fourmolu = pkgs.lib.mkForce haskellNixTools.fourmolu;
+                  cabal-fmt = pkgs.lib.mkForce haskellNixTools.cabal-fmt;
+                };
+
+                excludes = [
+                  ".buildkite/"
+                ];
+              };
             };
 
           packages = {
