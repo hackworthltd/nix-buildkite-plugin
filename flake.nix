@@ -28,6 +28,12 @@
         inputs.self.overlays.default
       ];
 
+      version =
+        let
+          v = inputs.self.rev or inputs.self.lastModifiedDate;
+        in
+        builtins.trace "nix-buildkite version is ${v}" "git-${v}";
+
       ghcVersion = "ghc945";
 
       # Fourmolu updates often alter formatting arbitrarily, and we want to
@@ -148,7 +154,10 @@
 
           packages = {
             inherit (pkgs) nix-buildkite;
-          } // haskellNixFlake.packages;
+          } // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+            inherit (pkgs) nix-buildkite-docker-image;
+          })
+          // haskellNixFlake.packages;
 
           checks = haskellNixFlake.checks;
 
@@ -246,11 +255,54 @@
               };
 
               nixBuildkiteFlake = nix-buildkite-plugin.flake { };
+
+              nix-buildkite-docker-image = final.dockerTools.buildLayeredImage {
+                name = "nix-buildkite";
+                tag = version;
+                contents = (with final;[
+                  nix
+                  nix-buildkite
+                ])
+                ++ (with final; [
+                  # These are helpful for debugging broken images.
+                  bashInteractive
+                  coreutils
+                  lsof
+                  procps
+                ]);
+
+                config = {
+                  # Note that we can't set
+                  # "org.opencontainers.image.created" here because
+                  # it would introduce an impurity. If we want to
+                  # set it, we'll need to set it when we push to a
+                  # registry.
+                  Labels = {
+                    "org.opencontainers.image.source" =
+                      "https://github.com/hackworthltd/nix-buildkite-plugin";
+                    "org.opencontainers.image.documentation" =
+                      "https://github.com/hackworthltd/nix-buildkite-plugin";
+                    "org.opencontainers.image.title" = "nix-buildkite";
+                    "org.opencontainers.image.description" =
+                      "Create Buildkite pipelines from Nix attributes.";
+                    "org.opencontainers.image.version" = version;
+                    "org.opencontainers.image.authors" =
+                      "src@hackworthltd.com";
+                    "org.opencontainers.image.licenses" = "BSD-3-Clause";
+                    "org.opencontainers.image.vendor" = "Hackworth Ltd";
+                    "org.opencontainers.image.url" =
+                      "https://github.com/hackworthltd/nix-buildkite-plugin";
+                    "org.opencontainers.image.revision" = inputs.self.rev or "dirty";
+                  };
+                };
+              };
+
             in
             {
               inherit nix-buildkite-plugin;
 
               nix-buildkite = nixBuildkiteFlake.packages."nix-buildkite-plugin:exe:nix-buildkite";
+              inherit nix-buildkite-docker-image;
             }
           );
 
