@@ -45,9 +45,25 @@ import Data.Text (Text, isPrefixOf, pack, unpack)
 import qualified Data.Text as T
 import Data.Text.IO (readFile)
 
+data PipelineType = Nix | Kubernetes
+
 main :: IO ()
 main = do
   jobsExpr <- fromMaybe "./jobs.nix" . listToMaybe <$> getArgs
+
+  pipelineType <- do
+    pt <- lookupEnv "PIPELINE_TYPE"
+    case pt of
+      Nothing -> return Nix
+      Just "kubernetes" -> return Kubernetes
+      Just "nix" -> return Nix
+      Just invalid -> error $ "Invalid PIPELINE_TYPE" <> invalid
+
+  containerImage <- do
+    image <- lookupEnv "KUBERNETES_CONTAINER_IMAGE"
+    case image of
+      Nothing -> return "nixos/nix:latest"
+      Just image' -> return $ pack image'
 
   postBuildHook <- do
     cmd <- lookupEnv "POST_BUILD_HOOK"
@@ -106,7 +122,37 @@ main = do
 
   g <- foldr (\(_, drv) m -> m >>= \g -> add g drv) (pure empty) drvs
 
-  let steps = map (uncurry step) drvs
+  let steps Kubernetes = map (uncurry step) drvs
+        where
+          step label drvPath =
+            ( label
+            , object
+                [ "label" .= unpack label
+                , "plugins"
+                    .= [ object
+                          [ "kubernetes"
+                              .= [ object
+                                    [ "podSpec"
+                                        .= object
+                                          [ "containers"
+                                              .= [ object
+                                                    [ "image" .= containerImage
+                                                    , "command" .= String "nix-store"
+                                                    , "args" .= (postBuildHook <> ["-r", drvPath])
+                                                    ]
+                                                 ]
+                                          ]
+                                    ]
+                                 ]
+                          ]
+                       ]
+                , "key" .= stepify drvPath
+                , "depends_on" .= dependencies
+                ]
+            )
+            where
+              dependencies = map stepify $ filter (`elem` map snd drvs) $ drop 1 $ reachable drvPath g
+      steps Nix = map (uncurry step) drvs
         where
           step label drvPath =
             ( label
@@ -124,7 +170,7 @@ main = do
     encode $
       object
         [ "agents" .= agentTags
-        , "steps" .= map snd (sortOn fst steps)
+        , "steps" .= map snd (sortOn fst $ steps pipelineType)
         ]
 
 -- Transform nix platforms into buildkite emoji
