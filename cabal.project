@@ -5,5 +5,7 @@ packages:
 
 optimization: 0
 
+allow-newer: nix-derivation:text
+
 package *
   ghc-options: -fwrite-ide-info
