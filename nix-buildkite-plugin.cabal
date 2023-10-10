@@ -15,7 +15,7 @@ executable nix-buildkite
     , aeson                 >=2.0       && <2.2
     , algebraic-graphs      ^>=0.6
     , attoparsec            ^>=0.14
-    , base                  >=4.12      && <4.18
+    , base                  >=4.12      && <4.19
     , bytestring            >=0.10.8.2  && <0.12.0
     , containers            ^>=0.6.0.1
     , filepath              ^>=1.4.2.1
