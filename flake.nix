@@ -34,7 +34,7 @@
         in
         builtins.trace "nix-buildkite version is ${v}" "git-${v}";
 
-      ghcVersion = "ghc945";
+      ghcVersion = "ghc963";
 
       # Fourmolu updates often alter formatting arbitrarily, and we want to
       # have more control over this.
