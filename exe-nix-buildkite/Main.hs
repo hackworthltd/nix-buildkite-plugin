@@ -118,7 +118,7 @@ main = do
                 ]
             )
             where
-              dependencies = map stepify $ filter (`elem` map snd drvs) $ drop 1 $ reachable drvPath g
+              dependencies = map stepify $ filter (`elem` map snd drvs) $ drop 1 $ reachable g drvPath
 
   Data.ByteString.Lazy.putStr $
     encode $
