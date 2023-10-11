@@ -153,13 +153,15 @@
             };
 
           packages = {
-            inherit (pkgs) nix-buildkite;
+            inherit (pkgs) nix-buildkite nix-buildkite-unwrapped;
           } // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
             inherit (pkgs) nix-buildkite-docker-image;
           })
           // haskellNixFlake.packages;
 
-          checks = haskellNixFlake.checks;
+          checks = {
+            inherit (pkgs) nix-buildkite-tests;
+          } // haskellNixFlake.checks;
 
           apps =
             let
@@ -246,6 +248,7 @@
                     nodejs-18_x
 
                     nixpkgs-fmt
+                    goldplate
                   ]);
 
                   shellHook = ''
@@ -297,12 +300,41 @@
                 };
               };
 
+              nix-buildkite-unwrapped = nixBuildkiteFlake.packages."nix-buildkite-plugin:exe:nix-buildkite";
+
+              nix-buildkite = final.stdenv.mkDerivation {
+                name = "nix-buildkite";
+                src = ./.;
+                nativeBuildInputs = [
+                  final.makeWrapper
+                ];
+                installPhase = ''
+                  mkdir -p $out/bin
+                  makeWrapper ${nix-buildkite-unwrapped}/bin/nix-buildkite $out/bin/nix-buildkite \
+                    --suffix PATH : ${final.lib.makeBinPath [final.nix]}
+                '';
+
+                meta = with final.lib; {
+                  description = "Create Buildkite pipelines from Nix attributes.";
+                  homepage = "https://github.com/hackworthltd/nix-buildkite-plugin";
+                  license = licenses.bsd3;
+                  platforms = platforms.all;
+                  mainProgram = "nix-buildkite";
+                };
+              };
+
+              nix-buildkite-tests = final.callPackage ./nix/pkgs/nix-buildkite-tests {
+                src = ./tests;
+              };
             in
             {
+              inherit nix-buildkite-unwrapped;
+              inherit nix-buildkite;
               inherit nix-buildkite-plugin;
-
-              nix-buildkite = nixBuildkiteFlake.packages."nix-buildkite-plugin:exe:nix-buildkite";
               inherit nix-buildkite-docker-image;
+
+              inherit (final.haskellPackages) goldplate;
+              inherit nix-buildkite-tests;
             }
           );
 

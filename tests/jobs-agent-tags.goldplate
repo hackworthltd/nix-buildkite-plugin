@@ -1,0 +1,12 @@
+{
+    "command": "nix-buildkite",
+    "environment": {
+      "AGENT_TAGS": "queue=foobar,os=linux"
+    },
+    "arguments": ["jobs.nix"],
+    "asserts": [
+        {"exit_code": 0},
+        {"stdout": "${GOLDPLATE_NAME}.stdout"}
+    ]
+}
+
