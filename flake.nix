@@ -7,23 +7,27 @@
     # We use this for some convenience functions only.
     hacknix.url = "github:hackworthltd/hacknix";
 
-    pre-commit-hooks-nix.url = "github:cachix/pre-commit-hooks.nix";
+    pre-commit-hooks-nix.url = "github:cachix/git-hooks.nix";
 
     flake-compat.url = "github:edolstra/flake-compat";
     flake-compat.flake = false;
 
     flake-parts.url = "github:hercules-ci/flake-parts";
 
+    treefmt-nix.url = "github:numtide/treefmt-nix";
+
     # Let haskell.nix dictate the nixpkgs we use, as that will ensure
     # better haskell.nix cache hits.
     nixpkgs.follows = "haskell-nix/nixpkgs-unstable";
     hacknix.inputs.nixpkgs.follows = "nixpkgs";
     pre-commit-hooks-nix.inputs.nixpkgs.follows = "nixpkgs";
+    treefmt-nix.inputs.nixpkgs.follows = "nixpkgs";
 
     haskell-language-server.url = "github:haskell/haskell-language-server/748603e1cf4d85b3aa31bff4d91edd4b8b3fa66b";
   };
 
-  outputs = inputs@ { flake-parts, ... }:
+  outputs =
+    inputs@{ flake-parts, ... }:
     let
       allOverlays = [
         inputs.haskell-nix.overlay
@@ -47,11 +51,21 @@
 
       imports = [
         inputs.pre-commit-hooks-nix.flakeModule
+        inputs.treefmt-nix.flakeModule
       ];
 
-      systems = [ "x86_64-linux" "aarch64-darwin" ];
+      systems = [
+        "x86_64-linux"
+        "aarch64-darwin"
+      ];
 
-      perSystem = { config, pkgs, system, ... }:
+      perSystem =
+        {
+          config,
+          pkgs,
+          system,
+          ...
+        }:
         let
           # haskell.nix does a lot of heavy lifiting for us and gives us a
           # flake for our Cabal project with the following attributes:
@@ -67,36 +81,37 @@
               inherit (pkgs.haskell-nix) haskellSourceFilter;
               inherit (pkgs.haskell-nix.haskellLib) cleanGit cleanSourceWith;
 
-              sourceFilter = name: type:
-                let baseName = baseNameOf (toString name);
-                in ! (
-                  baseName == ".buildkite" ||
-                  baseName == ".github" ||
-                  baseName == "CHANGELOG.md" ||
-                  baseName == "LICENSE" ||
-                  baseName == "README.md" ||
-                  pkgs.lib.hasPrefix "cabal.project.local" baseName ||
-                  baseName == "default.nix" ||
-                  baseName == "flake.lock" ||
-                  baseName == "flake.nix" ||
-                  baseName == "hooks" ||
-                  baseName == "jobs.nix" ||
-                  baseName == "nix" ||
-                  baseName == "plugin.yml" ||
-                  baseName == "shell.nix"
+              sourceFilter =
+                name: type:
+                let
+                  baseName = baseNameOf (toString name);
+                in
+                !(
+                  baseName == ".buildkite"
+                  || baseName == ".github"
+                  || baseName == "CHANGELOG.md"
+                  || baseName == "LICENSE"
+                  || baseName == "README.md"
+                  || pkgs.lib.hasPrefix "cabal.project.local" baseName
+                  || baseName == "default.nix"
+                  || baseName == "flake.lock"
+                  || baseName == "flake.nix"
+                  || baseName == "hooks"
+                  || baseName == "jobs.nix"
+                  || baseName == "nix"
+                  || baseName == "plugin.yml"
+                  || baseName == "shell.nix"
                 );
             in
             cleanSourceWith {
               filter = haskellSourceFilter;
               name = "nix-buildkite-plugin-src";
-              src = cleanSourceWith
-                {
-                  filter = sourceFilter;
-                  src = cleanGit
-                    {
-                      src = ./.;
-                    };
+              src = cleanSourceWith {
+                filter = sourceFilter;
+                src = cleanGit {
+                  src = ./.;
                 };
+              };
             };
         in
         {
@@ -105,58 +120,43 @@
           # workaround. See:
           #
           # https://github.com/hercules-ci/flake-parts/issues/106#issuecomment-1399041045
-          _module.args.pkgs = import inputs.nixpkgs
-            {
-              inherit system;
-              config = {
-                allowUnfree = true;
-                allowBroken = true;
-              };
-              overlays = allOverlays;
+          _module.args.pkgs = import inputs.nixpkgs {
+            inherit system;
+            config = {
+              allowUnfree = true;
+              allowBroken = true;
             };
+            overlays = allOverlays;
+          };
 
-          pre-commit =
-            let
-              # Override the default nix-pre-commit-hooks tools with the version
-              # we're using.
-              haskellNixTools = pkgs.haskell-nix.tools ghcVersion {
-                hlint = "latest";
-                fourmolu = fourmoluVersion;
-              };
-            in
-            {
-              check.enable = true;
-              settings = {
-                src = ./.;
-                hooks = {
-                  hlint.enable = true;
-                  fourmolu.enable = true;
-                  nixpkgs-fmt.enable = true;
-                  shellcheck.enable = true;
-                  actionlint.enable = true;
+          formatter = pkgs.nixfmt-rfc-style;
+
+          pre-commit = {
+            check.enable = true;
+            settings = {
+              src = ./.;
+              hooks = {
+                treefmt.enable = true;
+                nixfmt-rfc-style.enable = true;
+                actionlint = {
+                  enable = true;
+                  name = "actionlint";
+                  entry = "${pkgs.actionlint}/bin/actionlint";
+                  language = "system";
+                  files = "^.github/workflows/";
                 };
-
-                # We need to force these due to
-                #
-                # https://github.com/cachix/pre-commit-hooks.nix/issues/204
-                tools = {
-                  nixpkgs-fmt = pkgs.lib.mkForce pkgs.nixpkgs-fmt;
-                  hlint = pkgs.lib.mkForce haskellNixTools.hlint;
-                  fourmolu = pkgs.lib.mkForce haskellNixTools.fourmolu;
-                };
-
-                excludes = [
-                  ".buildkite/"
-                ];
               };
             };
+          };
 
-          packages = {
-            inherit (pkgs) nix-buildkite;
-          } // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
-            inherit (pkgs) nix-buildkite-docker-image;
-          })
-          // haskellNixFlake.packages;
+          packages =
+            {
+              inherit (pkgs) nix-buildkite;
+            }
+            // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+              inherit (pkgs) nix-buildkite-docker-image;
+            })
+            // haskellNixFlake.packages;
 
           checks = haskellNixFlake.checks;
 
@@ -172,24 +172,72 @@
             })
             // haskellNixFlake.apps;
 
+          treefmt.config =
+            let
+              haskellNixTools = pkgs.haskell-nix.tools ghcVersion {
+                fourmolu = fourmoluVersion;
+              };
+            in
+            {
+              projectRootFile = "flake.nix";
+
+              programs.nixfmt.enable = true;
+
+              programs.hlint = {
+                enable = true;
+                package = pkgs.hlint;
+              };
+              programs.cabal-fmt = {
+                enable = true;
+                package = pkgs.cabal-fmt;
+              };
+              programs.fourmolu = {
+                enable = true;
+                package = haskellNixTools.fourmolu;
+              };
+              programs.nixpkgs-fmt.enable = true;
+              programs.shellcheck.enable = true;
+
+              settings.on-unmatched = "info";
+            };
+
           devShells.default = haskellNixFlake.devShells.default;
+          devShells.meta-fmt = pkgs.mkShell {
+            inputsFrom = [
+              config.treefmt.build.devShell
+            ];
+
+            buildInputs = (
+              with pkgs;
+              [
+                actionlint
+                nixd
+                nodejs
+                nixfmt-rfc-style
+              ]
+            );
+
+            shellHook = ''
+              ${config.pre-commit.installationScript}
+            '';
+          };
         };
 
       flake =
         let
           # See above, we need to use our own `pkgs` within the flake.
-          pkgs = import inputs.nixpkgs
-            {
-              system = "x86_64-linux";
-              config = {
-                allowUnfree = true;
-                allowBroken = true;
-              };
-              overlays = allOverlays;
+          pkgs = import inputs.nixpkgs {
+            system = "x86_64-linux";
+            config = {
+              allowUnfree = true;
+              allowBroken = true;
             };
+            overlays = allOverlays;
+          };
         in
         {
-          overlays.default = (final: prev:
+          overlays.default = (
+            final: prev:
             let
               ghc982Tools = final.haskell-nix.tools "ghc982" {
                 hlint = "latest";
@@ -247,13 +295,19 @@
                     fourmolu = fourmoluVersion;
                   };
 
-                  buildInputs = (with final; [
-                    # For Language Server support.
-                    nodejs_22
+                  buildInputs = (
+                    with final;
+                    [
+                      actionlint
+                      cabal-fmt
+                      nixd
+                      vscode-langservers-extracted
+                      nixfmt-rfc-style
 
-                    nixpkgs-fmt
-                    cabal-fmt
-                  ]);
+                      # For Language Server support.
+                      nodejs_22
+                    ]
+                  );
 
                   shellHook = ''
                     export HIE_HOOGLE_DATABASE="$(cat $(${final.which}/bin/which hoogle) | sed -n -e 's|.*--database \(.*\.hoo\).*|\1|p')"
@@ -266,17 +320,18 @@
               nix-buildkite-docker-image = final.dockerTools.buildLayeredImage {
                 name = "nix-buildkite";
                 tag = version;
-                contents = (with final;[
-                  nix
-                  nix-buildkite
-                ])
-                ++ (with final; [
-                  # These are helpful for debugging broken images.
-                  bashInteractive
-                  coreutils
-                  lsof
-                  procps
-                ]);
+                contents =
+                  (with final; [
+                    nix
+                    nix-buildkite
+                  ])
+                  ++ (with final; [
+                    # These are helpful for debugging broken images.
+                    bashInteractive
+                    coreutils
+                    lsof
+                    procps
+                  ]);
 
                 config = {
                   # Note that we can't set
@@ -285,20 +340,15 @@
                   # set it, we'll need to set it when we push to a
                   # registry.
                   Labels = {
-                    "org.opencontainers.image.source" =
-                      "https://github.com/hackworthltd/nix-buildkite-plugin";
-                    "org.opencontainers.image.documentation" =
-                      "https://github.com/hackworthltd/nix-buildkite-plugin";
+                    "org.opencontainers.image.source" = "https://github.com/hackworthltd/nix-buildkite-plugin";
+                    "org.opencontainers.image.documentation" = "https://github.com/hackworthltd/nix-buildkite-plugin";
                     "org.opencontainers.image.title" = "nix-buildkite";
-                    "org.opencontainers.image.description" =
-                      "Create Buildkite pipelines from Nix attributes.";
+                    "org.opencontainers.image.description" = "Create Buildkite pipelines from Nix attributes.";
                     "org.opencontainers.image.version" = version;
-                    "org.opencontainers.image.authors" =
-                      "src@hackworthltd.com";
+                    "org.opencontainers.image.authors" = "src@hackworthltd.com";
                     "org.opencontainers.image.licenses" = "BSD-3-Clause";
                     "org.opencontainers.image.vendor" = "Hackworth Ltd";
-                    "org.opencontainers.image.url" =
-                      "https://github.com/hackworthltd/nix-buildkite-plugin";
+                    "org.opencontainers.image.url" = "https://github.com/hackworthltd/nix-buildkite-plugin";
                     "org.opencontainers.image.revision" = inputs.self.rev or "dirty";
                   };
                 };
@@ -322,12 +372,15 @@
 
             required = pkgs.releaseTools.aggregate {
               name = "required-nix-ci";
-              constituents = builtins.map builtins.attrValues (with inputs.self.hydraJobs; [
-                packages.x86_64-linux
-                packages.aarch64-darwin
-                checks.x86_64-linux
-                checks.aarch64-darwin
-              ]);
+              constituents = builtins.map builtins.attrValues (
+                with inputs.self.hydraJobs;
+                [
+                  packages.x86_64-linux
+                  packages.aarch64-darwin
+                  checks.x86_64-linux
+                  checks.aarch64-darwin
+                ]
+              );
               meta.description = "Required Nix CI builds";
             };
           };
