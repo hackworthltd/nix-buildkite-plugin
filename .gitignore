@@ -28,3 +28,6 @@ result*
 # direnv
 .envrc
 .direnv/
+
+# pre-commit-hooks
+.pre-commit-config.yaml
