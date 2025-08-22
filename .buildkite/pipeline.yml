@@ -1,20 +1,30 @@
 agents:
-  public: "true"
-  os: "linux"
+    queue: "nix-eval"
 
 steps:
-  # Note: incompatible with NixOS because it looks for /bin/bash
+    - command: nix flake archive .#
+      label: ":nixos: Archive Nix flake inputs"
+      agents:
+          queue: "nix-build"
 
-  # - label: ":sparkles: Lint"
-  #   plugins:
-  #     - plugin-linter#v3.2.0:
-  #         id: hackworthltd/nix
+    - command: nix-buildkite
+      label: ":nixos: :buildkite:"
+      plugins:
+          - hackworthltd/nix#v1.0.0:
+                file: jobs.nix
+                agent-tags: queue=nix-build,os=linux
 
-  - command: nix-buildkite
-    label: ":nixos: :buildkite:"
-    plugins:
-      - hackworthltd/nix:
-          file: jobs.nix
+    - wait
 
-  - command: nix flake archive .#
-    label: ":nixos: Archive Nix flake inputs"
+    - label: ":nixos: :linux: Cache the Nix shell"
+      command: |
+          nix develop --print-build-logs --profile /tmp/primer --command echo "done"
+      agents:
+          queue: "nix-build"
+
+    - label: ":nixos: :macos: Cache the Nix shell"
+      command: |
+          nix develop --print-build-logs --profile /tmp/primer --command echo "done"
+      agents:
+          queue: "nix-build"
+          os: "darwin"
