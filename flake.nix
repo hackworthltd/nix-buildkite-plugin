@@ -19,6 +19,8 @@
     nixpkgs.follows = "haskell-nix/nixpkgs-unstable";
     hacknix.inputs.nixpkgs.follows = "nixpkgs";
     pre-commit-hooks-nix.inputs.nixpkgs.follows = "nixpkgs";
+
+    haskell-language-server.url = "github:haskell/haskell-language-server/748603e1cf4d85b3aa31bff4d91edd4b8b3fa66b";
   };
 
   outputs = inputs@ { flake-parts, ... }:
@@ -34,11 +36,11 @@
         in
         builtins.trace "nix-buildkite version is ${v}" "git-${v}";
 
-      ghcVersion = "ghc963";
+      ghcVersion = "ghc9122";
 
       # Fourmolu updates often alter formatting arbitrarily, and we want to
       # have more control over this.
-      fourmoluVersion = "0.12.0.0";
+      fourmoluVersion = "0.18.0.0";
     in
     flake-parts.lib.mkFlake { inherit inputs; } {
       debug = true;
@@ -120,7 +122,6 @@
               haskellNixTools = pkgs.haskell-nix.tools ghcVersion {
                 hlint = "latest";
                 fourmolu = fourmoluVersion;
-                cabal-fmt = "latest";
               };
             in
             {
@@ -130,7 +131,6 @@
                 hooks = {
                   hlint.enable = true;
                   fourmolu.enable = true;
-                  cabal-fmt.enable = true;
                   nixpkgs-fmt.enable = true;
                   shellcheck.enable = true;
                   actionlint.enable = true;
@@ -143,7 +143,6 @@
                   nixpkgs-fmt = pkgs.lib.mkForce pkgs.nixpkgs-fmt;
                   hlint = pkgs.lib.mkForce haskellNixTools.hlint;
                   fourmolu = pkgs.lib.mkForce haskellNixTools.fourmolu;
-                  cabal-fmt = pkgs.lib.mkForce haskellNixTools.cabal-fmt;
                 };
 
                 excludes = [
@@ -192,6 +191,12 @@
         {
           overlays.default = (final: prev:
             let
+              ghc982Tools = final.haskell-nix.tools "ghc982" {
+                hlint = "latest";
+                cabal-fmt = "latest";
+                ghcid = "latest";
+              };
+
               nix-buildkite-plugin = final.haskell-nix.cabalProject {
                 compiler-nix-name = ghcVersion;
                 src = ./.;
@@ -227,9 +232,12 @@
                   tools = {
                     ghcid = "latest";
 
-                    # Workaround for HLS in haskell.nix. Ref:
-                    # https://github.com/input-output-hk/haskell.nix/issues/1981#issuecomment-1594278049
-                    haskell-language-server.src = pkgs.haskell-nix.sources."hls-2.0";
+                    haskell-language-server = {
+                      src = inputs.haskell-language-server;
+                      cabalProjectLocal = ''
+                        allow-newer: haddock-library:base
+                      '';
+                    };
 
                     implicit-hie = "latest";
 
@@ -237,15 +245,14 @@
                     hlint = "latest";
 
                     fourmolu = fourmoluVersion;
-
-                    cabal-fmt = "latest";
                   };
 
                   buildInputs = (with final; [
                     # For Language Server support.
-                    nodejs-18_x
+                    nodejs_22
 
                     nixpkgs-fmt
+                    cabal-fmt
                   ]);
 
                   shellHook = ''
@@ -303,6 +310,8 @@
 
               nix-buildkite = nixBuildkiteFlake.packages."nix-buildkite-plugin:exe:nix-buildkite";
               inherit nix-buildkite-docker-image;
+
+              inherit (ghc982Tools) cabal-fmt hlint ghcid;
             }
           );
 
@@ -327,4 +336,3 @@
         };
     };
 }
-
