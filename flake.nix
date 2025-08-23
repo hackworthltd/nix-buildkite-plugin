@@ -156,7 +156,7 @@
           # `checks`, `apps`, and `packages`.
           haskellNixFlake = nixBuildkitePlugin.flake { };
 
-          nix-buildkite-plugin = haskellNixFlake.packages."nix-buildkite-plugin:exe:nix-buildkite";
+          nix-buildkite = haskellNixFlake.packages."nix-buildkite-plugin:exe:nix-buildkite";
 
           nix-buildkite-docker-image = pkgs.dockerTools.buildLayeredImage {
             name = "nix-buildkite";
@@ -173,7 +173,7 @@
                 procps
               ])
               ++ [
-                nix-buildkite-plugin
+                nix-buildkite
               ];
 
             config = {
@@ -276,7 +276,7 @@
 
           packages =
             {
-              inherit nix-buildkite-plugin;
+              inherit nix-buildkite;
             }
             // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
               inherit nix-buildkite-docker-image;
@@ -293,7 +293,7 @@
               };
             in
             (pkgs.lib.mapAttrs (name: pkg: mkApp pkg name) {
-              inherit nix-buildkite-plugin;
+              inherit nix-buildkite;
             })
             // haskellNixFlake.apps;
 
