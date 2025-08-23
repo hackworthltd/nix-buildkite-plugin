@@ -25,6 +25,9 @@ executable nix-buildkite
     , unordered-containers  ^>=0.2.19
 
   default-language: GHC2021
+  default-extensions:
+    LambdaCase
+    OverloadedStrings
   hs-source-dirs:   exe-nix-buildkite
   ghc-options:
     -Wcompat -Wall -fwarn-incomplete-uni-patterns
