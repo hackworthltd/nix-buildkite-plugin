@@ -17,22 +17,22 @@ import Data.Attoparsec.Text (char, parseOnly, sepBy, takeWhile1)
 -- base
 import Data.Char
 import Data.List (partition, sortOn)
-import qualified Data.List as List
+import Data.List qualified as List
 import Data.Maybe (fromMaybe, listToMaybe)
 import Data.Traversable (for)
 import System.Environment (getArgs, lookupEnv)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.IO (hGetContents, hPutStrLn, stderr)
 import Prelude hiding (getContents, lines, readFile, words)
-import qualified Prelude
+import Prelude qualified
 
 -- bytestring
-import qualified Data.ByteString.Lazy
+import Data.ByteString.Lazy qualified
 
 -- containers
 import Data.Containers.ListUtils (nubOrd)
-import qualified Data.Map as Map
-import qualified Data.Set as S
+import Data.Map qualified as Map
+import Data.Set qualified as S
 
 -- filepath
 import System.FilePath
@@ -45,7 +45,7 @@ import System.Process hiding (env, system)
 
 -- text
 import Data.Text (Text, isPrefixOf, pack, unpack)
-import qualified Data.Text as T
+import Data.Text qualified as T
 import Data.Text.IO (readFile)
 
 nixInstantiate :: String -> IO [String]
