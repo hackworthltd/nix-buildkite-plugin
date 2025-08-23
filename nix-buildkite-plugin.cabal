@@ -30,3 +30,4 @@ executable nix-buildkite
     -Wcompat -Wall -fwarn-incomplete-uni-patterns
     -Wincomplete-record-updates -Wpartial-fields
     -Wredundant-constraints -Wmissing-export-lists
+    -threaded -rtsopts -with-rtsopts=-N
