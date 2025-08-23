@@ -10,8 +10,9 @@ steps:
     - command: nix-buildkite
       label: ":nixos: :buildkite:"
       plugins:
-          - hackworthltd/nix#b5c2d18061eb7d2ff9e205a74ba0ca50febb7eac:
+          - hackworthltd/nix#v1.1.0:
                 file: jobs.nix
+                skip-already-built: "true"
                 agent-tags: queue=nix-build,os=linux
 
     - wait
