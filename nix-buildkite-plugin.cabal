@@ -24,7 +24,7 @@ executable nix-buildkite
     , text                  ^>=2.1
     , unordered-containers  ^>=0.2.19
 
-  default-language: Haskell2010
+  default-language: GHC2021
   hs-source-dirs:   exe-nix-buildkite
   ghc-options:
     -Wcompat -Wall -fwarn-incomplete-uni-patterns
