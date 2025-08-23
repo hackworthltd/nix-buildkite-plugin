@@ -103,6 +103,11 @@
                 doQuickjump = true;
                 doHoogle = true;
               }
+              {
+                # These packages don't/can't generate HIE files. See:
+                # https://github.com/input-output-hk/haskell.nix/issues/1242
+                packages.mtl-compat.writeHieFiles = false;
+              }
             ];
 
             shell = {

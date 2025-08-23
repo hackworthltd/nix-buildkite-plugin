@@ -3,57 +3,37 @@
 
 module Main (main) where
 
--- algebraic-graphs
+import Protolude hiding (empty, isPrefixOf, lines)
+
 import Algebra.Graph.AdjacencyMap (AdjacencyMap, edge, empty, hasVertex, overlay, overlays, postSet, vertexSet)
-
--- aeson
 import Data.Aeson (Value (..), encode, object, (.=))
-
--- attoparsec
 import Data.Attoparsec.Text (char, parseOnly, sepBy, takeWhile1)
-
--- base
-import Data.Char
-import Data.List (partition, sortOn)
-import Data.List qualified as List
-import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Traversable (for)
-import System.Environment (getArgs, lookupEnv)
-import System.Exit (ExitCode (ExitFailure, ExitSuccess))
-import System.IO (hGetContents, hPutStrLn, stderr)
-import Prelude hiding (getContents, lines, readFile, words)
-import Prelude qualified
-
--- bytestring
 import Data.ByteString.Lazy qualified
-
--- containers
 import Data.Containers.ListUtils (nubOrd)
+import Data.List (partition)
+import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as S
-
--- filepath
-import System.FilePath
-
--- nix-derivation
-import Nix.Derivation
-
--- process
+import Data.String (String, lines)
+import Data.Text (isPrefixOf, pack, unpack)
+import Data.Text qualified as T
+import Nix.Derivation (
+  Derivation (Derivation, env, inputDrvs),
+  parseDerivation,
+ )
+import System.Environment (lookupEnv)
+import System.FilePath (takeBaseName, takeFileName)
+import System.IO (hGetContents)
 import System.Process hiding (env, system)
 
--- text
-import Data.Text (Text, isPrefixOf, pack, unpack)
-import Data.Text qualified as T
-import Data.Text.IO (readFile)
-
 nixInstantiate :: String -> IO [String]
-nixInstantiate jobsExpr = Prelude.lines <$> readProcess "nix-instantiate" [jobsExpr] ""
+nixInstantiate jobsExpr = lines <$> readProcess "nix-instantiate" [jobsExpr] ""
 
 nixBuildDryRun :: [String] -> IO [String]
 nixBuildDryRun jobsExpr =
   withCreateProcess ((proc "nix-build" ("--dry-run" : jobsExpr)){std_err = CreatePipe}) $ \_stdin _stdout stderrHndl prchndl -> do
     inputLines <-
-      Prelude.lines <$> case stderrHndl of
+      lines <$> case stderrHndl of
         Just hndl -> hGetContents hndl
         Nothing -> pure []
     -- See Note: [nix-build --dry-run output]
@@ -65,11 +45,11 @@ nixBuildDryRun jobsExpr =
     -- dump the output to stderr
     mapM_ (hPutStrLn stderr) inputLines
 
-    let res = map stripLeadingWhitespace . takeWhile (not . fetchLine) . drop 1 $ dropWhile (not . buildLine) inputLines
+    let res = map stripLeadingWhitespace . takeWhile (not . fetchLine) . drop 1 $ dropWhile (not . buildLine) $ toS <$> inputLines
     exitCode <- waitForProcess prchndl
     case exitCode of
       ExitSuccess -> pure res
-      ExitFailure err -> error $ "nix-build --dry run failed with exit code: " ++ show err
+      ExitFailure err -> panic $ "nix-build --dry run failed with exit code: " <> show err
 
 main :: IO ()
 main = do
@@ -79,14 +59,14 @@ main = do
     cmd <- lookupEnv "POST_BUILD_HOOK"
     case cmd of
       Nothing -> return []
-      Just path -> return ["--post-build-hook", path]
+      Just path -> return ["--post-build-hook", toS path]
 
   skipAlreadyBuilt <- do
     e <- lookupEnv "SKIP_ALREADY_BUILT"
     pure $ case e of
       Just "true" -> True
       Just "false" -> False
-      Just _ -> error "SKIP_ALREADY_BUILT only accepts 'true' or 'false'."
+      Just _ -> panic "SKIP_ALREADY_BUILT only accepts 'true' or 'false'."
       Nothing -> False
 
   agentTags <- do
@@ -95,7 +75,7 @@ main = do
       Nothing -> return mempty
       Just tags' -> do
         case parseOnly pairs $ pack tags' of
-          Left err -> error $ "Failed to parse AGENT_TAGS: " ++ err
+          Left err -> panic $ "Failed to parse AGENT_TAGS: " <> toS err
           Right pairs' -> return $ Map.fromList pairs'
         where
           pairs = pair `sepBy` ","
@@ -142,7 +122,7 @@ main = do
                           Just s -> emojify s <> ":"
                  in return (system <> name, drvPath)
           )
-        . parseOnly parseDerivation
+      . parseOnly parseDerivation
 
   g <- foldr (\(_, drv) m -> m >>= \g -> add g drv) (pure empty) drvs
 
@@ -169,7 +149,7 @@ main = do
             ( label
             , object
                 [ "label" .= unpack label
-                , "command" .= String (pack $ unwords $ ["nix-store"] <> postBuildHook <> ["-r", drvPath])
+                , "command" .= String (unwords $ ["nix-store"] <> postBuildHook <> ["-r", toS drvPath])
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
@@ -200,12 +180,12 @@ emojify system =
     toEmoji _ = ""
 
 stepify :: String -> String
-stepify = take 99 . map replace . takeBaseName
+stepify = take 99 . map repl . takeBaseName
   where
-    replace x | isAlphaNum x = x
-    replace '/' = '/'
-    replace '-' = '-'
-    replace _ = '_'
+    repl x | isAlphaNum x = x
+    repl '/' = '/'
+    repl '-' = '-'
+    repl _ = '_'
 
 add :: AdjacencyMap FilePath -> FilePath -> IO (AdjacencyMap FilePath)
 add g drvPath =
@@ -223,4 +203,4 @@ add g drvPath =
 
                   return $ overlay deps g'
             )
-          . parseOnly parseDerivation
+        . parseOnly parseDerivation
