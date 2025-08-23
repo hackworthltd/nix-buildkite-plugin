@@ -3,17 +3,20 @@ description: Generates a Buildkite pipeline from a Nix expression
 author: https://github.com/hackworthltd
 requirements: []
 configuration:
-  properties:
-    file:
-      type: string
-    post-build-hook:
-      type: string
-    agent-tags:
-      type: string
-  required:
-    - file
-  not:
+    properties:
+        file:
+            type: string
+        post-build-hook:
+            type: string
+        skip-already-built:
+            type: string
+        agent-tags:
+            type: string
     required:
-      - post-build-hook
-      - agent-tags
-  additionalProperties: false
+        - file
+    not:
+        required:
+            - post-build-hook
+            - skip-already-built
+            - agent-tags
+    additionalProperties: false
