@@ -10,7 +10,7 @@ steps:
     - command: nix-buildkite
       label: ":nixos: :buildkite:"
       plugins:
-          - hackworthltd/nix#v1.0.0:
+          - hackworthltd/nix#b5c2d18061eb7d2ff9e205a74ba0ca50febb7eac:
                 file: jobs.nix
                 agent-tags: queue=nix-build,os=linux
 
