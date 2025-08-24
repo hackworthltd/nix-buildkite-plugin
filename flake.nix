@@ -362,6 +362,8 @@
                   packages.aarch64-darwin
                   checks.x86_64-linux
                   checks.aarch64-darwin
+                  devShells.x86_64-linux
+                  devShells.aarch64-darwin
                 ]
               );
               meta.description = "Required Nix CI builds";
