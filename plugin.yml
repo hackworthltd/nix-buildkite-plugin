@@ -6,6 +6,12 @@ configuration:
     properties:
         expr:
             type: string
+        nix-eval-jobs-args:
+            type: string
+        jq-opts:
+            type: string
+        jq-filter:
+            type: string
         post-build-hook:
             type: string
         agent-tags:
@@ -14,6 +20,9 @@ configuration:
         - expr
     not:
         required:
+            - nix-eval-jobs-args
+            - jq-opts
+            - jq-filter
             - post-build-hook
             - agent-tags
     additionalProperties: false
