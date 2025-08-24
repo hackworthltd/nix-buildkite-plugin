@@ -52,7 +52,7 @@ main = do
   let skipPrefix = ["required"]
 
   -- Read the list of derivations to build from stdin, sort, and unique-ify.
-  inputDrvPaths <- nubOrd <$> lines <$> toS <$> getContents
+  inputDrvPaths <- (nubOrd . lines) . toS <$> getContents
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
