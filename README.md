@@ -84,11 +84,9 @@ that aggregates a number of other flake outputs, you will want to add the job's 
 
 The plugin runs `jq -re` by default, but you can change the `-re` options to `jq` via this plugin option.
 
-## `post-build-hook`
+## `nix-store-opts`
 
-The name (or path) of an executable that's compatible with Nix's
-[post-build hook
-semantics](https://nixos.org/manual/nix/stable/advanced-topics/post-build-hook.html):
+When the plugin generates the dynamic Buildkite plugin, it uses `nix-store -r <drv>` to "realize" each derivation `<drv>`. If you want to pass additional options to every instantiation of `nix-store`, you can pass those additional arguments here. For example, to use a Nix post-build hook:
 
 ```yaml
 steps:
@@ -97,18 +95,5 @@ steps:
     plugins:
       - hackworthltd/nix#v2.0.0:
           expr: jobs.nix
-          post-build-hook: /etc/nix/upload-to-cache.sh
+          nix-store-opts: --post-build-hook /etc/nix/upload-to-cache.sh
 ```
-
-When specified, the plugin will run this hook after its
-`nix-instantiate` phase, and after each individual job that it
-creates. This option is useful when you want to take advantage of
-Nix's post-build hook feature (e.g., to upload the derivations created
-by the pipeline), but you don't want to enable a system-wide
-post-build hook. For example, you might only want to upload some
-pipelines' outputs to your binary cache, or you might want to upload
-different pipelines' outputs to different binary caches.
-
-Note that in order to use this feature, you'll need to add the user
-that the Buildkite agent runs as to `nix.trustedUsers`, as only
-trusted users can run post-build hooks.

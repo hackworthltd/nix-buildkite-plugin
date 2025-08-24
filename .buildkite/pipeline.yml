@@ -12,7 +12,7 @@ steps:
       env:
           BUILDKITE_PLUGINS_ALWAYS_CLONE_FRESH: "true"
       plugins:
-          - hackworthltd/nix#v2.0.0-b1:
+          - hackworthltd/nix#v2.0.0-b2:
                 expr: ".#hydraJobs.required"
                 nix-eval-jobs-args: --workers 8 --max-memory-size 32GiB --flake --constituents
                 jq-filter: .drvPath, .constituents[]

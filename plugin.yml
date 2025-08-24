@@ -12,7 +12,7 @@ configuration:
             type: string
         jq-filter:
             type: string
-        post-build-hook:
+        nix-store-opts:
             type: string
         agent-tags:
             type: string
@@ -23,6 +23,6 @@ configuration:
             - nix-eval-jobs-args
             - jq-opts
             - jq-filter
-            - post-build-hook
+            - nix-store-opts
             - agent-tags
     additionalProperties: false
