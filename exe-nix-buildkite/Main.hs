@@ -1,95 +1,35 @@
 {-# LANGUAGE BlockArguments #-}
-{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
-{-# LANGUAGE OverloadedStrings #-}
 
 module Main (main) where
 
--- algebraic-graphs
+import Protolude hiding (empty, isPrefixOf, lines)
+
 import Algebra.Graph.AdjacencyMap (AdjacencyMap, edge, empty, hasVertex, overlay, overlays, postSet, vertexSet)
-
--- aeson
 import Data.Aeson (Value (..), encode, object, (.=))
-
--- attoparsec
 import Data.Attoparsec.Text (char, parseOnly, sepBy, takeWhile1)
-
--- base
-import Data.Char
-import Data.List (partition, sortOn)
-import qualified Data.List as List
-import Data.Maybe (fromMaybe, listToMaybe)
-import Data.Traversable (for)
-import System.Environment (getArgs, lookupEnv)
-import System.Exit (ExitCode (ExitFailure, ExitSuccess))
-import System.IO (hGetContents, hPutStrLn, stderr)
-import Prelude hiding (getContents, lines, readFile, words)
-import qualified Prelude
-
--- bytestring
-import qualified Data.ByteString.Lazy
-
--- containers
+import Data.ByteString.Lazy qualified
 import Data.Containers.ListUtils (nubOrd)
-import qualified Data.Map as Map
-import qualified Data.Set as S
-
--- filepath
-import System.FilePath
-
--- nix-derivation
-import Nix.Derivation
-
--- process
-import System.Process hiding (env, system)
-
--- text
-import Data.Text (Text, isPrefixOf, pack, unpack)
-import qualified Data.Text as T
-import Data.Text.IO (readFile)
-
-nixInstantiate :: String -> IO [String]
-nixInstantiate jobsExpr = Prelude.lines <$> readProcess "nix-instantiate" [jobsExpr] ""
-
-nixBuildDryRun :: [String] -> IO [String]
-nixBuildDryRun jobsExpr =
-  withCreateProcess ((proc "nix-build" ("--dry-run" : jobsExpr)){std_err = CreatePipe}) $ \_stdin _stdout stderrHndl prchndl -> do
-    inputLines <-
-      Prelude.lines <$> case stderrHndl of
-        Just hndl -> hGetContents hndl
-        Nothing -> pure []
-    -- See Note: [nix-build --dry-run output]
-    let stripLeadingWhitespace = dropWhile (== ' ')
-    let theseLine line = List.isPrefixOf "these" line || List.isPrefixOf "this" line
-    let buildLine line = theseLine line && List.isSubsequenceOf "built" line
-    let fetchLine line = theseLine line && List.isSubsequenceOf "fetched" line
-
-    -- dump the output to stderr
-    mapM_ (hPutStrLn stderr) inputLines
-
-    let res = map stripLeadingWhitespace . takeWhile (not . fetchLine) . drop 1 $ dropWhile (not . buildLine) inputLines
-    exitCode <- waitForProcess prchndl
-    case exitCode of
-      ExitSuccess -> pure res
-      ExitFailure err -> error $ "nix-build --dry run failed with exit code: " ++ show err
+import Data.List (partition)
+import Data.Map qualified as Map
+import Data.Set qualified as S
+import Data.String (String, lines)
+import Data.Text (isPrefixOf, pack, unpack)
+import Data.Text qualified as T
+import Nix.Derivation (
+  Derivation (Derivation, env, inputDrvs),
+  parseDerivation,
+ )
+import System.Environment (lookupEnv)
+import System.FilePath (takeBaseName, takeFileName)
 
 main :: IO ()
 main = do
-  jobsExpr <- fromMaybe "./jobs.nix" . listToMaybe <$> getArgs
-
   postBuildHook <- do
     cmd <- lookupEnv "POST_BUILD_HOOK"
     case cmd of
       Nothing -> return []
-      Just path -> return ["--post-build-hook", path]
-
-  skipAlreadyBuilt <- do
-    e <- lookupEnv "SKIP_ALREADY_BUILT"
-    pure $ case e of
-      Just "true" -> True
-      Just "false" -> False
-      Just _ -> error "SKIP_ALREADY_BUILT only accepts 'true' or 'false'."
-      Nothing -> False
+      Just path -> return ["--post-build-hook", toS path]
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
@@ -97,7 +37,7 @@ main = do
       Nothing -> return mempty
       Just tags' -> do
         case parseOnly pairs $ pack tags' of
-          Left err -> error $ "Failed to parse AGENT_TAGS: " ++ err
+          Left err -> panic $ "Failed to parse AGENT_TAGS: " <> toS err
           Right pairs' -> return $ Map.fromList pairs'
         where
           pairs = pair `sepBy` ","
@@ -111,19 +51,12 @@ main = do
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
   let skipPrefix = ["required"]
 
-  -- Run nix-instantiate on the jobs expression to instantiate .drvs for all
-  -- things that may need to be built.
-  inputDrvPaths <- nubOrd <$> nixInstantiate jobsExpr
-
-  -- Get the list of derivations that will be built, which may include drvs not in inputDrvPaths
-  pathsToBuild <- if skipAlreadyBuilt then nixBuildDryRun inputDrvPaths else pure inputDrvPaths
-
-  -- Filter our inputDrvs down to just those that will be built (if the skip already built flag is set)
-  let inputDrvPathsToBuild = S.toList $ S.fromList inputDrvPaths `S.intersection` S.fromList pathsToBuild
+  -- Read the list of derivations to build from stdin, sort, and unique-ify.
+  inputDrvPaths <- (nubOrd . lines) . toS <$> getContents
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
-  drvs <- for inputDrvPathsToBuild \drvPath ->
+  drvs <- for inputDrvPaths \drvPath ->
     readFile drvPath
       >>= ( \case
               Left _ ->
@@ -144,7 +77,7 @@ main = do
                           Just s -> emojify s <> ":"
                  in return (system <> name, drvPath)
           )
-        . parseOnly parseDerivation
+      . parseOnly parseDerivation
 
   g <- foldr (\(_, drv) m -> m >>= \g -> add g drv) (pure empty) drvs
 
@@ -171,7 +104,7 @@ main = do
             ( label
             , object
                 [ "label" .= unpack label
-                , "command" .= String (pack $ unwords $ ["nix-store"] <> postBuildHook <> ["-r", drvPath])
+                , "command" .= String (unwords $ ["nix-store"] <> postBuildHook <> ["-r", toS drvPath])
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
@@ -202,12 +135,12 @@ emojify system =
     toEmoji _ = ""
 
 stepify :: String -> String
-stepify = take 99 . map replace . takeBaseName
+stepify = take 99 . map repl . takeBaseName
   where
-    replace x | isAlphaNum x = x
-    replace '/' = '/'
-    replace '-' = '-'
-    replace _ = '_'
+    repl x | isAlphaNum x = x
+    repl '/' = '/'
+    repl '-' = '-'
+    repl _ = '_'
 
 add :: AdjacencyMap FilePath -> FilePath -> IO (AdjacencyMap FilePath)
 add g drvPath =
@@ -225,4 +158,4 @@ add g drvPath =
 
                   return $ overlay deps g'
             )
-          . parseOnly parseDerivation
+        . parseOnly parseDerivation

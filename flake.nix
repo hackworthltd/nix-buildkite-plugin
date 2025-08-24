@@ -103,6 +103,11 @@
                 doQuickjump = true;
                 doHoogle = true;
               }
+              {
+                # These packages don't/can't generate HIE files. See:
+                # https://github.com/input-output-hk/haskell.nix/issues/1242
+                packages.mtl-compat.writeHieFiles = false;
+              }
             ];
 
             shell = {
@@ -261,15 +266,7 @@
             settings = {
               src = ./.;
               hooks = {
-                treefmt.enable = false;
-                nixfmt-rfc-style.enable = true;
-                actionlint = {
-                  enable = true;
-                  name = "actionlint";
-                  entry = "${pkgs.actionlint}/bin/actionlint";
-                  language = "system";
-                  files = "^.github/workflows/";
-                };
+                treefmt.enable = true;
               };
             };
           };
@@ -323,6 +320,7 @@
                 package = haskellNixTools.fourmolu;
               };
               programs.shellcheck.enable = true;
+              programs.actionlint.enable = true;
 
               settings.on-unmatched = "info";
             };
@@ -357,6 +355,8 @@
                   packages.aarch64-darwin
                   checks.x86_64-linux
                   checks.aarch64-darwin
+                  devShells.x86_64-linux
+                  devShells.aarch64-darwin
                 ]
               );
               meta.description = "Required Nix CI builds";
