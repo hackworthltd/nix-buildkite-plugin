@@ -266,15 +266,7 @@
             settings = {
               src = ./.;
               hooks = {
-                treefmt.enable = false;
-                nixfmt-rfc-style.enable = true;
-                actionlint = {
-                  enable = true;
-                  name = "actionlint";
-                  entry = "${pkgs.actionlint}/bin/actionlint";
-                  language = "system";
-                  files = "^.github/workflows/";
-                };
+                treefmt.enable = true;
               };
             };
           };
@@ -328,6 +320,7 @@
                 package = haskellNixTools.fourmolu;
               };
               programs.shellcheck.enable = true;
+              programs.actionlint.enable = true;
 
               settings.on-unmatched = "info";
             };
