@@ -4,14 +4,14 @@ author: https://github.com/hackworthltd
 requirements: []
 configuration:
     properties:
-        file:
+        expr:
             type: string
         post-build-hook:
             type: string
         agent-tags:
             type: string
     required:
-        - file
+        - expr
     not:
         required:
             - post-build-hook
