@@ -12,7 +12,6 @@ steps:
       plugins:
           - hackworthltd/nix#v1.1.0:
                 file: jobs.nix
-                skip-already-built: "true"
                 agent-tags: queue=nix-build,os=linux
 
     - wait

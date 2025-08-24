@@ -8,8 +8,6 @@ configuration:
             type: string
         post-build-hook:
             type: string
-        skip-already-built:
-            type: string
         agent-tags:
             type: string
     required:
@@ -17,6 +15,5 @@ configuration:
     not:
         required:
             - post-build-hook
-            - skip-already-built
             - agent-tags
     additionalProperties: false

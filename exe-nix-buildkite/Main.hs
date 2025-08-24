@@ -11,7 +11,6 @@ import Data.Attoparsec.Text (char, parseOnly, sepBy, takeWhile1)
 import Data.ByteString.Lazy qualified
 import Data.Containers.ListUtils (nubOrd)
 import Data.List (partition)
-import Data.List qualified as List
 import Data.Map qualified as Map
 import Data.Set qualified as S
 import Data.String (String, lines)
@@ -23,33 +22,10 @@ import Nix.Derivation (
  )
 import System.Environment (lookupEnv)
 import System.FilePath (takeBaseName, takeFileName)
-import System.IO (hGetContents)
 import System.Process hiding (env, system)
 
 nixInstantiate :: String -> IO [String]
 nixInstantiate jobsExpr = lines <$> readProcess "nix-instantiate" [jobsExpr] ""
-
-nixBuildDryRun :: [String] -> IO [String]
-nixBuildDryRun jobsExpr =
-  withCreateProcess ((proc "nix-build" ("--dry-run" : jobsExpr)){std_err = CreatePipe}) $ \_stdin _stdout stderrHndl prchndl -> do
-    inputLines <-
-      lines <$> case stderrHndl of
-        Just hndl -> hGetContents hndl
-        Nothing -> pure []
-    -- See Note: [nix-build --dry-run output]
-    let stripLeadingWhitespace = dropWhile (== ' ')
-    let theseLine line = List.isPrefixOf "these" line || List.isPrefixOf "this" line
-    let buildLine line = theseLine line && List.isSubsequenceOf "built" line
-    let fetchLine line = theseLine line && List.isSubsequenceOf "fetched" line
-
-    -- dump the output to stderr
-    mapM_ (hPutStrLn stderr) inputLines
-
-    let res = map stripLeadingWhitespace . takeWhile (not . fetchLine) . drop 1 $ dropWhile (not . buildLine) $ toS <$> inputLines
-    exitCode <- waitForProcess prchndl
-    case exitCode of
-      ExitSuccess -> pure res
-      ExitFailure err -> panic $ "nix-build --dry run failed with exit code: " <> show err
 
 main :: IO ()
 main = do
@@ -60,14 +36,6 @@ main = do
     case cmd of
       Nothing -> return []
       Just path -> return ["--post-build-hook", toS path]
-
-  skipAlreadyBuilt <- do
-    e <- lookupEnv "SKIP_ALREADY_BUILT"
-    pure $ case e of
-      Just "true" -> True
-      Just "false" -> False
-      Just _ -> panic "SKIP_ALREADY_BUILT only accepts 'true' or 'false'."
-      Nothing -> False
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
@@ -93,15 +61,9 @@ main = do
   -- things that may need to be built.
   inputDrvPaths <- nubOrd <$> nixInstantiate jobsExpr
 
-  -- Get the list of derivations that will be built, which may include drvs not in inputDrvPaths
-  pathsToBuild <- if skipAlreadyBuilt then nixBuildDryRun inputDrvPaths else pure inputDrvPaths
-
-  -- Filter our inputDrvs down to just those that will be built (if the skip already built flag is set)
-  let inputDrvPathsToBuild = S.toList $ S.fromList inputDrvPaths `S.intersection` S.fromList pathsToBuild
-
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
-  drvs <- for inputDrvPathsToBuild \drvPath ->
+  drvs <- for inputDrvPaths \drvPath ->
     readFile drvPath
       >>= ( \case
               Left _ ->
