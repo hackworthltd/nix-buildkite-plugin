@@ -10,7 +10,7 @@ if [[ -n "${BUILDKITE_PLUGIN_NIX_AGENT_TAGS:-}" ]]; then
 fi
 
 echo "--- :nixos: Running nix-buildkite"
-PIPELINE=$( nix-instantiate "$NIX_EXPR" | nix run .#nix-buildkite )
+PIPELINE=$( nix-instantiate "$NIX_EXPR" | nix run 'github:hackworthltd/nix-buildkite-plugin?ref=v1.1.2#nix-buildkite' )
 
 echo "--- :pipeline: Uploading pipeline"
 echo "$PIPELINE" | buildkite-agent pipeline upload

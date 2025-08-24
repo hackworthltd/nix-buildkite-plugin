@@ -12,7 +12,7 @@ steps:
       env:
           BUILDKITE_PLUGINS_ALWAYS_CLONE_FRESH: "true"
       plugins:
-          - hackworthltd/nix#dhess/flake:
+          - hackworthltd/nix#v1.1.2:
                 expr: jobs.nix
                 agent-tags: queue=nix-build,os=linux
 
