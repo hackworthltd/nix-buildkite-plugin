@@ -8,50 +8,42 @@ topological ordering that will ensure steps have the correct
 dependencies between them.
 
 Note: this project is a fork of [Circuithub's
-`nix-buildkite-buildkite-plugin``](https://github.com/circuithub/nix-buildkite-buildkite-plugin),
+`nix-buildkite-buildkite-plugin`](https://github.com/circuithub/nix-buildkite-buildkite-plugin),
 and we would like to thank them for their work, without which this
 project wouldn't be possible!
 
-# Getting Started
+# Usage
 
-## `jobs.nix`
-
-First, create a `jobs.nix` file in your repository. This file will contain a
-tree of all builds that you are interested in. We create this tree using nested
-attrsets that eventually have leaves that are derivations.
-
-For this example, we'll start by building the `nix-buildkite` project. Our
-`jobs.nix` file is:
-
-```nix
-(import nix/flake-compat.nix).defaultNix.ciJobs
-```
-
-## `.buildkite/pipeline.yml`
-
-Next, add a `.buildkite/pipeline.yml` file with the following contents:
+To use the plugin, add a `.buildkite/pipeline.yml` file to your repo.
+The plugin will use
+[`nix-eval-jobs`](https://github.com/nix-community/nix-eval-jobs) to
+evaluate the given expression and generate a list of derivations to
+build. For example, here we use a file named `jobs.nix` which, when
+evaluated, will produce a list of derivations:
 
 ```yaml
 steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v1.0.0:
-          file: jobs.nix
+      - hackworthltd/nix#v2.0.0:
+          expr: jobs.nix
 ```
 
-## Add Your Pipeline
+Next, configure your Buildkite pipeline to upload the dynamic pipeline
+created by the plugin when builds are triggered on your repo. See
+https://buildkite.com/docs/pipelines/defining-steps#getting-started
+for details on how to do this.
 
-The final step is to add your pipeline to Buildkite. See
-https://buildkite.com/docs/pipelines/defining-steps#getting-started for details
-on how to do this. Once you have a pipeline created, make sure that the only
-step declared in the pipeline configuration in Buildkite's UI is:
+Your static Buildkite pipeline should look something like this:
 
 ```yaml
 steps:
   - command: buildkite-agent pipeline upload
     label: ":pipeline:"
 ```
+
+# Plugin options
 
 ## Post-build hooks
 
@@ -65,8 +57,8 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v1.0.0:
-          file: jobs.nix
+      - hackworthltd/nix#v2.0.0:
+          expr: jobs.nix
           post-build-hook: /etc/nix/upload-to-cache.sh
 ```
 
@@ -82,8 +74,3 @@ different pipelines' outputs to different binary caches.
 Note that in order to use this feature, you'll need to add the user
 that the Buildkite agent runs as to `nix.trustedUsers`, as only
 trusted users can run post-build hooks.
-
-## Sit Back and Enjoy!
-
-That's it! Following these steps should give you a working pipeline that builds
-`nix-buildkite`.

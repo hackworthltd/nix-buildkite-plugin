@@ -26,6 +26,8 @@
     haskell-language-server.url = "github:haskell/haskell-language-server/748603e1cf4d85b3aa31bff4d91edd4b8b3fa66b";
     cabal-fmt.url = "github:phadej/cabal-fmt";
     cabal-fmt.flake = false;
+
+    nix-eval-jobs.url = "github:nix-community/nix-eval-jobs";
   };
 
   outputs =
@@ -243,6 +245,19 @@
                 };
               };
             };
+
+          with-nix-eval-jobs = pkgs.writeShellApplication {
+            name = "with-nix-eval-jobs";
+            runtimeInputs =
+              (with pkgs; [
+                jq
+              ])
+              ++ [
+                inputs.nix-eval-jobs.packages.${system}.nix-eval-jobs
+                nix-buildkite
+              ];
+            text = builtins.readFile ./scripts/with-nix-eval-jobs.sh;
+          };
         in
         {
           # We need a `pkgs` that includes our own overlays within
@@ -274,6 +289,7 @@
           packages =
             {
               inherit nix-buildkite;
+              inherit with-nix-eval-jobs;
             }
             // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
               inherit nix-buildkite-docker-image;
