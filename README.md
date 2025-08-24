@@ -45,10 +45,48 @@ steps:
 
 # Plugin options
 
-## Post-build hooks
+In addition to the mandatory `expr` argument, the plugin supports the
+following additional options:
 
-The plugin accepts an optional `post-build-hook` argument, whose value
-is the name (or path) of an executable that's compatible with Nix's
+## `nix-eval-jobs-args`
+
+These are passed to `nix-eval-jobs`. For example, to evaluate a
+flake's `hydraJobs` output and increase the available resources for
+`nix-eval-jobs`:
+
+```yaml
+steps:
+  - command: nix-buildkite
+    label: ":nixos: :buildkite:"
+    plugins:
+      - hackworthltd/nix#v2.0.0:
+          expr: ".#hydraJobs"
+		  nix-eval-jobs-args: --workers 8 --max-memory-size 32GiB --flake --force-recurse
+```
+
+## `jq-filter`
+
+The plugin uses `jq` to convert the JSON output of `nix-eval-jobs` to
+a list of derivations. The default `jq` filter is `try (.drvPath) catch halt_error`, but you can change it via this plugin option. For example, assuming your flake's `hydraJobs` has a `required` attribute
+that aggregates a number of other flake outputs, you will want to add the job's `constituents` to the list of derivations to build:
+
+```yaml
+    - command: nix-buildkite
+      label: ":nixos: :buildkite:"
+      plugins:
+          - hackworthltd/nix#v2.0.0:
+                expr: ".#hydraJobs.required"
+                nix-eval-jobs-args: --workers 8 --max-memory-size 32GiB --flake --constituents
+                jq-filter: .drvPath, .constituents[]
+```
+
+## `jq-opts`
+
+The plugin runs `jq -re` by default, but you can change the `-re` options to `jq` via this plugin option.
+
+## `post-build-hook`
+
+The name (or path) of an executable that's compatible with Nix's
 [post-build hook
 semantics](https://nixos.org/manual/nix/stable/advanced-topics/post-build-hook.html):
 
