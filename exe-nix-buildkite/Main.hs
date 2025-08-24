@@ -22,15 +22,9 @@ import Nix.Derivation (
  )
 import System.Environment (lookupEnv)
 import System.FilePath (takeBaseName, takeFileName)
-import System.Process hiding (env, system)
-
-nixInstantiate :: String -> IO [String]
-nixInstantiate jobsExpr = lines <$> readProcess "nix-instantiate" [jobsExpr] ""
 
 main :: IO ()
 main = do
-  jobsExpr <- fromMaybe "./jobs.nix" . listToMaybe <$> getArgs
-
   postBuildHook <- do
     cmd <- lookupEnv "POST_BUILD_HOOK"
     case cmd of
@@ -57,9 +51,8 @@ main = do
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
   let skipPrefix = ["required"]
 
-  -- Run nix-instantiate on the jobs expression to instantiate .drvs for all
-  -- things that may need to be built.
-  inputDrvPaths <- nubOrd <$> nixInstantiate jobsExpr
+  -- Read the list of derivations to build from stdin, sort, and unique-ify.
+  inputDrvPaths <- nubOrd <$> lines <$> toS <$> getContents
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
