@@ -16,6 +16,6 @@ jobs:
 
     steps:
       - name: Check DCO
-        uses: hackworthltd/dcoapp@v1.1.0
+        uses: hackworthltd/dcoapp@bcb3a32e8dbb144730c44aa4d98edaf560f4e7f0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
