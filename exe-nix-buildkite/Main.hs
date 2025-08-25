@@ -40,6 +40,8 @@ main :: IO ()
 main = do
   nixStoreOpts <- lookupEnv "NIX_STORE_OPTS" <&> maybe mempty (words . toS)
 
+  nixBuildOpts <- lookupEnv "NIX_BUILD_OPTS" <&> maybe mempty (words . toS)
+
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
     case tags of
@@ -60,8 +62,25 @@ main = do
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
   let skipPrefix = ["required"]
 
-  -- Read the list of derivations to build from stdin, sort, and unique-ify.
-  inputDrvPaths <- nubOrd . lines <$> getContents
+  outputAttrsMode <- isJust <$> lookupEnv "OUTPUT_ATTRS"
+  outputAttrsPrefix <- lookupEnv "OUTPUT_ATTRS_PREFIX" <&> maybe mempty toS
+
+  -- Read derivations (or a space-delimited pair of derivation and
+  -- attribute, depending on the mode) from stdin.
+  (inputDrvPaths, drvAttrMap) <-
+    if outputAttrsMode
+      then do
+        -- In attribute mode, each line is "drvPath attribute".
+        pairs' <- map words . lines <$> getContents
+        let validPairs = [(drv, attr) | [drv, attr] <- pairs']
+        let drvs' = nubOrd $ map fst validPairs
+        let drvAttrMap' = Map.fromList validPairs
+        return (drvs', drvAttrMap')
+      else do
+        -- Otherwise, each line is just a drvPath.
+        drvs' <- nubOrd . lines <$> getContents
+        return (drvs', Map.empty)
+  -- \*** MODIFICATION END ***
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
@@ -113,13 +132,23 @@ main = do
             ( label
             , object
                 [ "label" .= label
-                , "command" .= String (unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath])
+                , "command" .= buildCommand drvPath
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
             )
             where
               dependencies = map stepify $ maybe [] S.toList $ Map.lookup drvPath closureG
+
+          buildCommand :: Text -> Value
+          buildCommand drvPath =
+            String $
+              if outputAttrsMode
+                then case Map.lookup drvPath drvAttrMap of
+                  Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
+                  Just attr -> unwords $ ["nix", "build"] <> nixBuildOpts <> [outputAttrsPrefix <> attr]
+                else
+                  unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath]
 
   Data.ByteString.Lazy.putStr $
     encode $
