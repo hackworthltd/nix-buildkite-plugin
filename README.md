@@ -61,7 +61,7 @@ steps:
     plugins:
       - hackworthltd/nix#v2.0.0:
           expr: ".#hydraJobs"
-		  nix-eval-jobs-args: --workers 8 --max-memory-size 32GiB --flake --force-recurse
+		  nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
 ```
 
 ## `jq-filter`
