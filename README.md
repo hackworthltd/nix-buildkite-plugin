@@ -48,6 +48,33 @@ steps:
 In addition to the mandatory `expr` argument, the plugin supports the
 following additional options:
 
+## `output-attrs`
+
+If `false` (the default), the plugin will generate a Buildkite pipeline that uses `nix-store -r` to "realize" each derivation in the evaluated Nix expression.
+
+If `true`, the plugin will instead generate a Buildkite pipeline that uses `nix build` to build each derivation's corresponding Nix attribute. `nix build` is generally more flexible than `nix-store`, so you may prefer this mode.
+
+## `output-attrs-prefix`
+
+When `output-attrs` is `true`, the plugin prefixes each built attribute with the string provided in this option. (The default value of this option is the empty string `""`.) This is required when building a flake, because `nix-eval-jobs` does not include the input flake expression in the attributes produced by its output.
+
+For example, to build the `.#hydraJobs` attribute of the checked-out flake using `nix build`:
+
+```yaml
+    - command: nix-buildkite
+      label: ":nixos: :buildkite:"
+      plugins:
+          - hackworthltd/nix#v2.0.0:
+                expr: ".#hydraJobs"
+				output-attrs: "true"
+				output-attrs-prefix: ".#hydraJobs."
+                nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
+```
+
+(In general, when building a flake from the checked-out repository, the value of this option should be the flake expression followed by `.`.)
+
+Note that this option is ignored when `output-attrs` is `false`.
+
 ## `nix-eval-jobs-args`
 
 These are passed to `nix-eval-jobs`. For example, to evaluate a
@@ -67,8 +94,8 @@ steps:
 ## `jq-filter`
 
 The plugin uses `jq` to convert the JSON output of `nix-eval-jobs` to
-a list of derivations. The default `jq` filter is `try (.drvPath) catch halt_error`, but you can change it via this plugin option. For example, assuming your flake's `hydraJobs` has a `required` attribute
-that aggregates a number of other flake outputs, you will want to add the job's `constituents` to the list of derivations to build:
+a list of derivations. The default `jq` filter is `try .drvPath catch halt_error`, or `try ([.drvPath, .attr] | join(" ")) catch halt_error` if `output-attrs` is `true`, but you can change it via this plugin option. For example, assuming your flake's `hydraJobs` has a `required` attribute
+that aggregates a number of other flake outputs, you may want to add the job's `constituents` to the list of derivations to build:
 
 ```yaml
     - command: nix-buildkite
@@ -76,7 +103,7 @@ that aggregates a number of other flake outputs, you will want to add the job's 
       plugins:
           - hackworthltd/nix#v2.0.0:
                 expr: ".#hydraJobs.required"
-                nix-eval-jobs-args: --workers 8 --max-memory-size 32GiB --flake --constituents
+                nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --constituents
                 jq-filter: .drvPath, .constituents[]
 ```
 
@@ -84,9 +111,25 @@ that aggregates a number of other flake outputs, you will want to add the job's 
 
 The plugin runs `jq -re` by default, but you can change the `-re` options to `jq` via this plugin option.
 
+## `nix-build-opts`
+
+When `output-attrs` is `true`, then when the plugin generates the dynamic Buildkite plugin, it uses `nix build <attr>` to build each attribute `<attr>` that results from evaluating the Nix expression specified by the plugin's `expr` option. If you want to pass additional options to every instantiation of `nix build`, you can pass those additional arguments here. For example, to use a Nix post-build hook:
+
+```yaml
+steps:
+  - command: nix-buildkite
+    label: ":nixos: :buildkite:"
+    plugins:
+      - hackworthltd/nix#v2.0.0:
+          expr: jobs.nix
+          nix-build-opts: --post-build-hook /etc/nix/upload-to-cache.sh
+```
+
+Note that this option is ignored when `output-attrs` is `false`.
+
 ## `nix-store-opts`
 
-When the plugin generates the dynamic Buildkite plugin, it uses `nix-store -r <drv>` to "realize" each derivation `<drv>`. If you want to pass additional options to every instantiation of `nix-store`, you can pass those additional arguments here. For example, to use a Nix post-build hook:
+When `output-attrs` is `false`, then when the plugin generates the dynamic Buildkite plugin, it uses `nix-store -r <drv>` to "realize" each derivation `<drv>` that results from evaluating the Nix expression specified by the plugin's `expr` option. If you want to pass additional options to every instantiation of `nix-store`, you can pass those additional arguments here. For example, to use a Nix post-build hook:
 
 ```yaml
 steps:
@@ -97,3 +140,5 @@ steps:
           expr: jobs.nix
           nix-store-opts: --post-build-hook /etc/nix/upload-to-cache.sh
 ```
+
+Note that this option is ignored when `output-attrs` is `true`.
