@@ -8,9 +8,9 @@ configuration:
             type: string
         nix-eval-jobs-args:
             type: string
-        output-attrs:
+        use-nix-build:
             type: boolean
-        output-attrs-prefix:
+        attr-prefix:
             type: string
         jq-opts:
             type: string
@@ -27,8 +27,8 @@ configuration:
     not:
         required:
             - nix-eval-jobs-args
-            - output-attrs
-            - output-attrs-prefix
+            - use-nix-build
+            - attr-prefix
             - jq-opts
             - jq-filter
             - build-build-opts

@@ -62,13 +62,13 @@ main = do
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
   let skipPrefix = ["required"]
 
-  outputAttrsMode <- isJust <$> lookupEnv "OUTPUT_ATTRS"
-  outputAttrsPrefix <- lookupEnv "OUTPUT_ATTRS_PREFIX" <&> maybe mempty toS
+  useNixBuild <- isJust <$> lookupEnv "USE_NIX_BUILD"
+  attrPrefix <- lookupEnv "ATTR_PREFIX" <&> maybe mempty toS
 
   -- Read derivations (or a space-delimited pair of derivation and
   -- attribute, depending on the mode) from stdin.
   (inputDrvPaths, drvAttrMap) <-
-    if outputAttrsMode
+    if useNixBuild
       then do
         -- In attribute mode, each line is "drvPath attribute".
         pairs' <- map words . lines <$> getContents
@@ -80,7 +80,6 @@ main = do
         -- Otherwise, each line is just a drvPath.
         drvs' <- nubOrd . lines <$> getContents
         return (drvs', Map.empty)
-  -- \*** MODIFICATION END ***
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
@@ -143,10 +142,10 @@ main = do
           buildCommand :: Text -> Value
           buildCommand drvPath =
             String $
-              if outputAttrsMode
+              if useNixBuild
                 then case Map.lookup drvPath drvAttrMap of
                   Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
-                  Just attr -> unwords $ ["nix", "build"] <> nixBuildOpts <> [outputAttrsPrefix <> attr]
+                  Just attr -> unwords $ ["nix", "build"] <> nixBuildOpts <> [attrPrefix <> attr]
                 else
                   unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath]
 

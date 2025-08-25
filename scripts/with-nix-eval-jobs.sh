@@ -8,7 +8,7 @@ fi
 : "${NIX_EVAL_JOBS_ARGS:=}"
 : "${JQ_OPTS:=-re}"
 
-if [[ -n "${OUTPUT_ATTRS:-}" ]]; then
+if [[ -n "${USE_NIX_BUILD:-}" ]]; then
     default_jq_filter='try ([.drvPath, .attr] | join(" ")) catch halt_error'
 else
     default_jq_filter='try .drvPath catch halt_error'
