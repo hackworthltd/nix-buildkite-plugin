@@ -3,35 +3,35 @@ description: Generates a Buildkite pipeline from a Nix expression
 author: https://github.com/hackworthltd
 requirements: []
 configuration:
-    properties:
-        expr:
-            type: string
-        nix-eval-jobs-args:
-            type: string
-        use-nix-build:
-            type: boolean
-        attr-prefix:
-            type: string
-        jq-opts:
-            type: string
-        jq-filter:
-            type: string
-        nix-build-opts:
-            type: string
-        nix-store-opts:
-            type: string
-        agent-tags:
-            type: string
+  properties:
+    expr:
+      type: string
+    nix-eval-jobs-args:
+      type: string
+    use-nix-build:
+      type: boolean
+    attr-prefix:
+      type: string
+    jq-opts:
+      type: string
+    jq-filter:
+      type: string
+    nix-build-opts:
+      type: string
+    nix-store-opts:
+      type: string
+    agent-tags:
+      type: string
+  required:
+    - expr
+  not:
     required:
-        - expr
-    not:
-        required:
-            - nix-eval-jobs-args
-            - use-nix-build
-            - attr-prefix
-            - jq-opts
-            - jq-filter
-            - build-build-opts
-            - nix-store-opts
-            - agent-tags
-    additionalProperties: false
+      - nix-eval-jobs-args
+      - use-nix-build
+      - attr-prefix
+      - jq-opts
+      - jq-filter
+      - build-build-opts
+      - nix-store-opts
+      - agent-tags
+  additionalProperties: false
