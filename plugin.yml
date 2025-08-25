@@ -8,9 +8,15 @@ configuration:
             type: string
         nix-eval-jobs-args:
             type: string
+        use-nix-build:
+            type: boolean
+        attr-prefix:
+            type: string
         jq-opts:
             type: string
         jq-filter:
+            type: string
+        nix-build-opts:
             type: string
         nix-store-opts:
             type: string
@@ -21,8 +27,11 @@ configuration:
     not:
         required:
             - nix-eval-jobs-args
+            - use-nix-build
+            - attr-prefix
             - jq-opts
             - jq-filter
+            - build-build-opts
             - nix-store-opts
             - agent-tags
     additionalProperties: false

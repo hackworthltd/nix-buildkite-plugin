@@ -3,40 +3,51 @@
 
 module Main (main) where
 
-import Protolude hiding (empty, isPrefixOf, lines)
+import Protolude hiding (empty, isPrefixOf)
 
 import Algebra.Graph.AdjacencyMap (AdjacencyMap, edge, empty, hasVertex, overlay, overlays, postSet, vertexSet)
 import Data.Aeson (Value (..), encode, object, (.=))
-import Data.Attoparsec.Text (char, parseOnly, sepBy, takeWhile1)
+import Data.Attoparsec.Text (Parser, char, parseOnly, sepBy, takeWhile1)
 import Data.ByteString.Lazy qualified
 import Data.Containers.ListUtils (nubOrd)
 import Data.List (partition)
 import Data.Map qualified as Map
 import Data.Set qualified as S
-import Data.String (String, lines)
-import Data.Text (isPrefixOf, pack, unpack)
+import Data.Text (isPrefixOf)
 import Data.Text qualified as T
 import Nix.Derivation (
   Derivation (Derivation, env, inputDrvs),
-  parseDerivation,
+  parseDerivationWith,
+  textParser,
  )
 import System.Environment (lookupEnv)
 import System.FilePath (takeBaseName, takeFileName)
 
+-- Minimize exposure to annoying 'FilePath'
+readFile' :: Text -> IO Text
+readFile' = readFile . toS
+
+takeFileName' :: Text -> Text
+takeFileName' = toS . takeFileName . toS
+
+takeBaseName' :: Text -> Text
+takeBaseName' = toS . takeBaseName . toS
+
+parseDerivation :: Parser (Derivation Text Text)
+parseDerivation = parseDerivationWith textParser textParser
+
 main :: IO ()
 main = do
-  nixStoreOpts <- do
-    opts <- lookupEnv "NIX_STORE_OPTS"
-    case opts of
-      Nothing -> return mempty
-      Just opts' -> return $ words $ toS opts'
+  nixStoreOpts <- lookupEnv "NIX_STORE_OPTS" <&> maybe mempty (words . toS)
+
+  nixBuildOpts <- lookupEnv "NIX_BUILD_OPTS" <&> maybe mempty (words . toS)
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
     case tags of
       Nothing -> return mempty
       Just tags' -> do
-        case parseOnly pairs $ pack tags' of
+        case parseOnly pairs $ toS tags' of
           Left err -> panic $ "Failed to parse AGENT_TAGS: " <> toS err
           Right pairs' -> return $ Map.fromList pairs'
         where
@@ -51,23 +62,39 @@ main = do
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
   let skipPrefix = ["required"]
 
-  -- Read the list of derivations to build from stdin, sort, and unique-ify.
-  inputDrvPaths <- (nubOrd . lines) . toS <$> getContents
+  useNixBuild <- isJust <$> lookupEnv "USE_NIX_BUILD"
+  attrPrefix <- lookupEnv "ATTR_PREFIX" <&> maybe mempty toS
+
+  -- Read derivations (or a space-delimited pair of derivation and
+  -- attribute, depending on the mode) from stdin.
+  (inputDrvPaths, drvAttrMap) <-
+    if useNixBuild
+      then do
+        -- In attribute mode, each line is "drvPath attribute".
+        pairs' <- map words . lines <$> getContents
+        let validPairs = [(drv, attr) | [drv, attr] <- pairs']
+        let drvs' = nubOrd $ map fst validPairs
+        let drvAttrMap' = Map.fromList validPairs
+        return (drvs', drvAttrMap')
+      else do
+        -- Otherwise, each line is just a drvPath.
+        drvs' <- nubOrd . lines <$> getContents
+        return (drvs', Map.empty)
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
   drvs <- for inputDrvPaths \drvPath ->
-    readFile drvPath
+    readFile' drvPath
       >>= ( \case
               Left _ ->
                 -- We couldn't parse the derivation to get a name, so we'll just use the
                 -- derivation name.
-                return (pack (takeFileName drvPath), drvPath)
+                return (takeFileName' drvPath, drvPath)
               Right drv ->
                 let name = case Map.lookup "name" (env drv) of
                       -- There was no 'name' environment variable, so we'll just use the
                       -- derivation name.
-                      Nothing -> pack (takeFileName drvPath)
+                      Nothing -> takeFileName' drvPath
                       Just n -> n
                     system =
                       if any (`isPrefixOf` name) skipPrefix
@@ -99,18 +126,28 @@ main = do
 
   let steps = map (uncurry step) drvs
         where
-          step :: Text -> FilePath -> (Text, Value)
+          step :: Text -> Text -> (Text, Value)
           step label drvPath =
             ( label
             , object
-                [ "label" .= unpack label
-                , "command" .= String (unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", toS drvPath])
+                [ "label" .= label
+                , "command" .= buildCommand drvPath
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
             )
             where
               dependencies = map stepify $ maybe [] S.toList $ Map.lookup drvPath closureG
+
+          buildCommand :: Text -> Value
+          buildCommand drvPath =
+            String $
+              if useNixBuild
+                then case Map.lookup drvPath drvAttrMap of
+                  Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
+                  Just attr -> unwords $ ["nix", "build"] <> nixBuildOpts <> [attrPrefix <> attr]
+                else
+                  unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath]
 
   Data.ByteString.Lazy.putStr $
     encode $
@@ -134,20 +171,20 @@ emojify system =
     toEmoji "windows" = ":windows: "
     toEmoji _ = ""
 
-stepify :: String -> String
-stepify = take 99 . map repl . takeBaseName
+stepify :: Text -> Text
+stepify = T.take 99 . T.map repl . takeBaseName'
   where
     repl x | isAlphaNum x = x
     repl '/' = '/'
     repl '-' = '-'
     repl _ = '_'
 
-add :: AdjacencyMap FilePath -> FilePath -> IO (AdjacencyMap FilePath)
+add :: AdjacencyMap Text -> Text -> IO (AdjacencyMap Text)
 add g drvPath =
   if hasVertex drvPath g
     then return g
     else
-      readFile drvPath
+      readFile' drvPath
         >>= ( \case
                 Left _ ->
                   return g

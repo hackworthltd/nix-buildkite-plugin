@@ -8,6 +8,14 @@ if [[ -n "${BUILDKITE_PLUGIN_NIX_AGENT_TAGS:-}" ]]; then
     export AGENT_TAGS="$BUILDKITE_PLUGIN_NIX_AGENT_TAGS"
 fi
 
+if [[ -n "${BUILDKITE_PLUGIN_NIX_USE_NIX_BUILD:-}" ]]; then
+    export USE_NIX_BUILD="$BUILDKITE_PLUGIN_NIX_USE_NIX_BUILD"
+fi
+
+if [[ -n "${BUILDKITE_PLUGIN_NIX_ATTR_PREFIX:-}" ]]; then
+    export ATTR_PREFIX="$BUILDKITE_PLUGIN_NIX_ATTR_PREFIX"
+fi
+
 if [[ -n "${BUILDKITE_PLUGIN_NIX_NIX_EVAL_JOBS_ARGS:-}" ]]; then
     export NIX_EVAL_JOBS_ARGS="$BUILDKITE_PLUGIN_NIX_NIX_EVAL_JOBS_ARGS"
 fi
@@ -20,12 +28,16 @@ if [[ -n "${BUILDKITE_PLUGIN_NIX_JQ_FILTER:-}" ]]; then
     export JQ_FILTER="$BUILDKITE_PLUGIN_NIX_JQ_FILTER"
 fi
 
+if [[ -n "${BUILDKITE_PLUGIN_NIX_NIX_BUILD_OPTS:-}" ]]; then
+    export NIX_BUILD_OPTS="$BUILDKITE_PLUGIN_NIX_NIX_BUILD_OPTS"
+fi
+
 if [[ -n "${BUILDKITE_PLUGIN_NIX_NIX_STORE_OPTS:-}" ]]; then
     export NIX_STORE_OPTS="$BUILDKITE_PLUGIN_NIX_NIX_STORE_OPTS"
 fi
 
 echo "--- :nixos: Running nix-buildkite with nix-eval-jobs"
-PIPELINE=$( nix run 'github:hackworthltd/nix-buildkite-plugin?ref=v2.0.0-b2#with-nix-eval-jobs' -- "$NIX_EXPR" )
+PIPELINE=$( nix run 'github:hackworthltd/nix-buildkite-plugin?ref=v2.0.0-b3#with-nix-eval-jobs' -- "$NIX_EXPR" )
 
 echo "--- :pipeline: Uploading pipeline"
 echo "$PIPELINE" | buildkite-agent pipeline upload

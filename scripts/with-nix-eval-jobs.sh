@@ -7,7 +7,13 @@ fi
 
 : "${NIX_EVAL_JOBS_ARGS:=}"
 : "${JQ_OPTS:=-re}"
-: "${JQ_FILTER:=try (.drvPath) catch halt_error}"
+
+if [[ -n "${USE_NIX_BUILD:-}" ]]; then
+    default_jq_filter='try ([.drvPath, .attr] | join(" ")) catch halt_error'
+else
+    default_jq_filter='try .drvPath catch halt_error'
+fi
+: "${JQ_FILTER:=$default_jq_filter}"
 
 read -r -a nix_eval_job_args <<< "$NIX_EVAL_JOBS_ARGS"
 read -r -a jq_opts <<< "$JQ_OPTS"
