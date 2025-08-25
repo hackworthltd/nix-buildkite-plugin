@@ -12,7 +12,7 @@ steps:
     env:
       BUILDKITE_PLUGINS_ALWAYS_CLONE_FRESH: "true"
     plugins:
-      - hackworthltd/nix#v2.0.0-b3:
+      - hackworthltd/nix#v2.0.0:
           expr: ".#hydraJobs"
           use-nix-build: "true"
           attr-prefix: ".#hydraJobs."
