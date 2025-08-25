@@ -25,11 +25,11 @@ import System.FilePath (takeBaseName, takeFileName)
 
 main :: IO ()
 main = do
-  postBuildHook <- do
-    cmd <- lookupEnv "POST_BUILD_HOOK"
-    case cmd of
-      Nothing -> return []
-      Just path -> return ["--post-build-hook", toS path]
+  nixStoreOpts <- do
+    opts <- lookupEnv "NIX_STORE_OPTS"
+    case opts of
+      Nothing -> return mempty
+      Just opts' -> return $ words $ toS opts'
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
@@ -104,7 +104,7 @@ main = do
             ( label
             , object
                 [ "label" .= unpack label
-                , "command" .= String (unwords $ ["nix-store"] <> postBuildHook <> ["-r", toS drvPath])
+                , "command" .= String (unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", toS drvPath])
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
