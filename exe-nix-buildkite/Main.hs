@@ -3,25 +3,38 @@
 
 module Main (main) where
 
-import Protolude hiding (empty, isPrefixOf, lines)
+import Protolude hiding (empty, isPrefixOf)
 
 import Algebra.Graph.AdjacencyMap (AdjacencyMap, edge, empty, hasVertex, overlay, overlays, postSet, vertexSet)
 import Data.Aeson (Value (..), encode, object, (.=))
-import Data.Attoparsec.Text (char, parseOnly, sepBy, takeWhile1)
+import Data.Attoparsec.Text (Parser, char, parseOnly, sepBy, takeWhile1)
 import Data.ByteString.Lazy qualified
 import Data.Containers.ListUtils (nubOrd)
 import Data.List (partition)
 import Data.Map qualified as Map
 import Data.Set qualified as S
-import Data.String (String, lines)
-import Data.Text (isPrefixOf, pack, unpack)
+import Data.Text (isPrefixOf)
 import Data.Text qualified as T
 import Nix.Derivation (
   Derivation (Derivation, env, inputDrvs),
-  parseDerivation,
+  parseDerivationWith,
+  textParser,
  )
 import System.Environment (lookupEnv)
 import System.FilePath (takeBaseName, takeFileName)
+
+-- Minimize exposure to annoying 'FilePath'
+readFile' :: Text -> IO Text
+readFile' = readFile . toS
+
+takeFileName' :: Text -> Text
+takeFileName' = toS . takeFileName . toS
+
+takeBaseName' :: Text -> Text
+takeBaseName' = toS . takeBaseName . toS
+
+parseDerivation :: Parser (Derivation Text Text)
+parseDerivation = parseDerivationWith textParser textParser
 
 main :: IO ()
 main = do
@@ -36,7 +49,7 @@ main = do
     case tags of
       Nothing -> return mempty
       Just tags' -> do
-        case parseOnly pairs $ pack tags' of
+        case parseOnly pairs $ toS tags' of
           Left err -> panic $ "Failed to parse AGENT_TAGS: " <> toS err
           Right pairs' -> return $ Map.fromList pairs'
         where
@@ -52,22 +65,22 @@ main = do
   let skipPrefix = ["required"]
 
   -- Read the list of derivations to build from stdin, sort, and unique-ify.
-  inputDrvPaths <- (nubOrd . lines) . toS <$> getContents
+  inputDrvPaths <- nubOrd . lines <$> getContents
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
   drvs <- for inputDrvPaths \drvPath ->
-    readFile drvPath
+    readFile' drvPath
       >>= ( \case
               Left _ ->
                 -- We couldn't parse the derivation to get a name, so we'll just use the
                 -- derivation name.
-                return (pack (takeFileName drvPath), drvPath)
+                return (takeFileName' drvPath, drvPath)
               Right drv ->
                 let name = case Map.lookup "name" (env drv) of
                       -- There was no 'name' environment variable, so we'll just use the
                       -- derivation name.
-                      Nothing -> pack (takeFileName drvPath)
+                      Nothing -> takeFileName' drvPath
                       Just n -> n
                     system =
                       if any (`isPrefixOf` name) skipPrefix
@@ -99,12 +112,12 @@ main = do
 
   let steps = map (uncurry step) drvs
         where
-          step :: Text -> FilePath -> (Text, Value)
+          step :: Text -> Text -> (Text, Value)
           step label drvPath =
             ( label
             , object
-                [ "label" .= unpack label
-                , "command" .= String (unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", toS drvPath])
+                [ "label" .= label
+                , "command" .= String (unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath])
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
@@ -134,20 +147,20 @@ emojify system =
     toEmoji "windows" = ":windows: "
     toEmoji _ = ""
 
-stepify :: String -> String
-stepify = take 99 . map repl . takeBaseName
+stepify :: Text -> Text
+stepify = T.take 99 . T.map repl . takeBaseName'
   where
     repl x | isAlphaNum x = x
     repl '/' = '/'
     repl '-' = '-'
     repl _ = '_'
 
-add :: AdjacencyMap FilePath -> FilePath -> IO (AdjacencyMap FilePath)
+add :: AdjacencyMap Text -> Text -> IO (AdjacencyMap Text)
 add g drvPath =
   if hasVertex drvPath g
     then return g
     else
-      readFile drvPath
+      readFile' drvPath
         >>= ( \case
                 Left _ ->
                   return g
