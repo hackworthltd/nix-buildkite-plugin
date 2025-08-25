@@ -38,11 +38,7 @@ parseDerivation = parseDerivationWith textParser textParser
 
 main :: IO ()
 main = do
-  nixStoreOpts <- do
-    opts <- lookupEnv "NIX_STORE_OPTS"
-    case opts of
-      Nothing -> return mempty
-      Just opts' -> return $ words $ toS opts'
+  nixStoreOpts <- lookupEnv "NIX_STORE_OPTS" <&> maybe mempty (words . toS)
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
