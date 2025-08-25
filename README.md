@@ -61,14 +61,15 @@ When `use-nix-build` is `true`, the plugin prefixes each built attribute with th
 For example, to build the `.#hydraJobs` attribute of the checked-out flake using `nix build`:
 
 ```yaml
-    - command: nix-buildkite
-      label: ":nixos: :buildkite:"
-      plugins:
-          - hackworthltd/nix#v2.0.0:
-                expr: ".#hydraJobs"
-				use-nix-build: "true"
-				attr-prefix: ".#hydraJobs."
-                nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
+steps:
+  - command: nix-buildkite
+	label: ":nixos: :buildkite:"
+	plugins:
+		- hackworthltd/nix#v2.0.0:
+			  expr: ".#hydraJobs"
+			  use-nix-build: "true"
+			  attr-prefix: ".#hydraJobs."
+			  nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
 ```
 
 (In general, when building a flake from the checked-out repository, the value of this option should be the flake expression followed by `.`.)
@@ -98,13 +99,14 @@ a list of derivations. The default `jq` filter is `try .drvPath catch halt_error
 that aggregates a number of other flake outputs, you may want to add the job's `constituents` to the list of derivations to build:
 
 ```yaml
-    - command: nix-buildkite
-      label: ":nixos: :buildkite:"
-      plugins:
-          - hackworthltd/nix#v2.0.0:
-                expr: ".#hydraJobs.required"
-                nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --constituents
-                jq-filter: .drvPath, .constituents[]
+steps:
+  - command: nix-buildkite
+    label: ":nixos: :buildkite:"
+    plugins:
+      - hackworthltd/nix#v2.0.0:
+          expr: ".#hydraJobs.required"
+          nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --constituents
+          jq-filter: .drvPath, .constituents[]
 ```
 
 ## `jq-opts`

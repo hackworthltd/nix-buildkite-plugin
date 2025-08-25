@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
   schedule:
     # 5 am every Wednesday.
-    - cron: '0 3 * * 3'
+    - cron: "0 3 * * 3"
 
 jobs:
   update-nix-dependencies:
