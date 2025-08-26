@@ -44,7 +44,7 @@ jobs:
           nix build -L .#packages.x86_64-linux.nix-buildkite-docker-image
 
       - name: Authenticate to ghcr.io
-        uses: docker/login-action@343f7c4344506bcbf9b4de18042ae17996df046d
+        uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
