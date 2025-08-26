@@ -7,12 +7,6 @@ steps:
     agents:
       queue: "nix-build"
 
-  - command: echo "Test skipping"
-    label: ":nixos: Test skipping"
-    skip: "Test skipping"
-    agents:
-      queue: "nix-build"
-
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     env:
