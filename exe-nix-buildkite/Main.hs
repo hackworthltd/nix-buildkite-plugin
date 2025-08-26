@@ -36,6 +36,15 @@ takeBaseName' = toS . takeBaseName . toS
 parseDerivation :: Parser (Derivation Text Text)
 parseDerivation = parseDerivationWith textParser textParser
 
+data CacheStatus = Local | Cached | NotBuilt
+  deriving (Eq, Show)
+
+parseCacheStatus :: Text -> CacheStatus
+parseCacheStatus "local" = Local
+parseCacheStatus "cached" = Cached
+parseCacheStatus "notBuilt" = NotBuilt
+parseCacheStatus unknown = panic $ "Unknown cache status: " <> unknown
+
 main :: IO ()
 main = do
   nixStoreOpts <- lookupEnv "NIX_STORE_OPTS" <&> maybe mempty (words . toS)
@@ -63,23 +72,26 @@ main = do
   let skipPrefix = ["required"]
 
   useNixBuild <- isJust <$> lookupEnv "USE_NIX_BUILD"
+  ignoreCacheStatus <- isJust <$> lookupEnv "IGNORE_CACHE_STATUS"
   attrPrefix <- lookupEnv "ATTR_PREFIX" <&> maybe mempty toS
 
-  -- Read derivations (or a space-delimited pair of derivation and
-  -- attribute, depending on the mode) from stdin.
-  (inputDrvPaths, drvAttrMap) <-
+  -- Parse input.
+  (inputDrvPaths, drvAttrMap, drvStatusMap) <- do
+    inputLines <- map words . lines <$> getContents
     if useNixBuild
       then do
-        -- In attribute mode, each line is "drvPath attribute".
-        pairs' <- map words . lines <$> getContents
-        let validPairs = [(drv, attr) | [drv, attr] <- pairs']
-        let drvs' = nubOrd $ map fst validPairs
-        let drvAttrMap' = Map.fromList validPairs
-        return (drvs', drvAttrMap')
+        -- In `nix build` mode, each input line is "drvPath attribute status".
+        let tuples = [(drv, attr, status) | [drv, attr, status] <- inputLines]
+        let drvs' = nubOrd $ map (\(drv, _, _) -> drv) tuples
+        let drvAttrMap' = Map.fromList [(drv, attr) | (drv, attr, _) <- tuples]
+        let drvStatusMap' = Map.fromList [(drv, parseCacheStatus status) | (drv, _, status) <- tuples]
+        return (drvs', drvAttrMap', drvStatusMap')
       else do
-        -- Otherwise, each line is just a drvPath.
-        drvs' <- nubOrd . lines <$> getContents
-        return (drvs', Map.empty)
+        -- Otherwise, each line is "drvPath status".
+        let pairs = [(drv, status) | [drv, status] <- inputLines]
+        let drvs' = nubOrd $ map fst pairs
+        let drvStatusMap' = Map.fromList [(drv, parseCacheStatus status) | (drv, status) <- pairs]
+        return (drvs', Map.empty, drvStatusMap')
 
   -- Build an association list of a job name and the derivation that should be
   -- realised for that job.
@@ -131,7 +143,7 @@ main = do
             ( label
             , object
                 [ "label" .= label
-                , "command" .= buildCommand drvPath
+                , "command" .= stepCommand drvPath
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
@@ -139,15 +151,34 @@ main = do
             where
               dependencies = map stepify $ maybe [] S.toList $ Map.lookup drvPath closureG
 
-          buildCommand :: Text -> Value
+          buildCommand :: Text -> Text
           buildCommand drvPath =
+            if useNixBuild
+              then case Map.lookup drvPath drvAttrMap of
+                Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
+                Just attr -> unwords $ ["nix", "build"] <> nixBuildOpts <> [attrPrefix <> attr]
+              else unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath]
+
+          stepCommand :: Text -> Value
+          stepCommand drvPath =
             String $
-              if useNixBuild
-                then case Map.lookup drvPath drvAttrMap of
-                  Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
-                  Just attr -> unwords $ ["nix", "build"] <> nixBuildOpts <> [attrPrefix <> attr]
-                else
-                  unwords $ ["nix-store"] <> nixStoreOpts <> ["-r", drvPath]
+              if ignoreCacheStatus
+                then buildCommand drvPath
+                else case Map.lookup drvPath drvStatusMap of
+                  Just Local ->
+                    if useNixBuild
+                      then case Map.lookup drvPath drvAttrMap of
+                        Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
+                        Just attr -> "echo 'Attribute " <> attrPrefix <> attr <> " already built locally'"
+                      else "echo 'Derivation " <> takeFileName' drvPath <> " already built locally'"
+                  Just Cached ->
+                    if useNixBuild
+                      then case Map.lookup drvPath drvAttrMap of
+                        Nothing -> panic $ "Internal error: could not find attribute for derivation " <> drvPath
+                        Just attr -> "echo 'Attribute " <> attrPrefix <> attr <> " already cached'"
+                      else "echo 'Derivation " <> takeFileName' drvPath <> " already cached'"
+                  _ ->
+                    buildCommand drvPath
 
   Data.ByteString.Lazy.putStr $
     encode $

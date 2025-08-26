@@ -26,7 +26,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.0.0:
+      - hackworthltd/nix#v2.1.0:
           expr: jobs.nix
 ```
 
@@ -54,6 +54,10 @@ If `false` (the default), the plugin will generate a Buildkite pipeline that use
 
 If `true`, the plugin will instead generate a Buildkite pipeline that uses `nix build` to build each derivation's corresponding Nix attribute. `nix build` is generally more flexible than `nix-store`, so you may prefer this mode.
 
+## `ignore-cache-status`
+
+By default, the plugin will not bother building any derivation that's already available in a binary cache or the local Nix store. (Buildkite will still report these derivations as having been successfully built, however.) If you want to ignore all derivations' cache status and run their corresponding `nix build` or `nix-store` command anyway, set `ignore-cache-status` to `true`.
+
 ## `attr-prefix`
 
 When `use-nix-build` is `true`, the plugin prefixes each built attribute with the string provided in this option. (The default value of this option is the empty string `""`.) This is required when building a flake, because `nix-eval-jobs` does not include the input flake expression in the attributes produced by its output.
@@ -65,7 +69,7 @@ steps:
   - command: nix-buildkite
 	label: ":nixos: :buildkite:"
 	plugins:
-		- hackworthltd/nix#v2.0.0:
+		- hackworthltd/nix#v2.1.0:
 			  expr: ".#hydraJobs"
 			  use-nix-build: "true"
 			  attr-prefix: ".#hydraJobs."
@@ -87,7 +91,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.0.0:
+      - hackworthltd/nix#v2.1.0:
           expr: ".#hydraJobs"
 		  nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
 ```
@@ -103,7 +107,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.0.0:
+      - hackworthltd/nix#v2.1.0:
           expr: ".#hydraJobs.required"
           nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --constituents
           jq-filter: .drvPath, .constituents[]
@@ -122,7 +126,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.0.0:
+      - hackworthltd/nix#v2.1.0:
           expr: jobs.nix
           nix-build-opts: --post-build-hook /etc/nix/upload-to-cache.sh
 ```
@@ -138,7 +142,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.0.0:
+      - hackworthltd/nix#v2.1.0:
           expr: jobs.nix
           nix-store-opts: --post-build-hook /etc/nix/upload-to-cache.sh
 ```
