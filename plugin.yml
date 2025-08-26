@@ -6,6 +6,8 @@ configuration:
   properties:
     expr:
       type: string
+    ignore-cache-status:
+      type: boolean
     nix-eval-jobs-args:
       type: string
     use-nix-build:
@@ -26,6 +28,7 @@ configuration:
     - expr
   not:
     required:
+      - ignore-cache-status
       - nix-eval-jobs-args
       - use-nix-build
       - attr-prefix
