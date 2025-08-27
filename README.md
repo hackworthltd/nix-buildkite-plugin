@@ -67,13 +67,13 @@ For example, to build the `.#hydraJobs` attribute of the checked-out flake using
 ```yaml
 steps:
   - command: nix-buildkite
-	label: ":nixos: :buildkite:"
-	plugins:
-		- hackworthltd/nix#v2.1.0:
-			  expr: ".#hydraJobs"
-			  use-nix-build: "true"
-			  attr-prefix: ".#hydraJobs."
-			  nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
+    label: ":nixos: :buildkite:"
+    plugins:
+      - hackworthltd/nix#v2.1.0:
+          expr: ".#hydraJobs"
+          use-nix-build: "true"
+          attr-prefix: ".#hydraJobs."
+          nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
 ```
 
 (In general, when building a flake from the checked-out repository, the value of this option should be the flake expression followed by `.`.)
@@ -93,7 +93,7 @@ steps:
     plugins:
       - hackworthltd/nix#v2.1.0:
           expr: ".#hydraJobs"
-		  nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
+          nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
 ```
 
 ## `jq-filter`
