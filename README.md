@@ -148,3 +148,31 @@ steps:
 ```
 
 Note that this option is ignored when `use-nix-build` is `true`.
+
+# FAQ
+
+## Should I use `nix build`, or `nix-store`?
+
+When `use-nix-build` is `false` (the default), the plugin will evaluate the top level Nix expression, and generate a Buildkite pipeline where each step in the pipeline uses `nix-store -r` to build the resulting Nix derivations (e.g., `nix-store -r /nix/store/awj3yp49zvak4qnilr4cva6mv80hld37-pre-commit-run.drv`).
+
+When `use-nix-build` is `true`, the plugin will evaluate the top level Nix expression, and generate a Buildkite pipeline where each step in the pipeline uses `nix build` to build the expression's installable Nix attributes (e.g., `nix build .#checks.x86_64-linux:pre-commit-run`).
+
+Whether to use `nix build` or `nix-store` depends on many factors:
+
+- The primary advantage of using `nix-store` is that the build will only run the Nix evaluation phase once, at the beginning of the build in order to generate the derivations. After that, Nix only builds derivations.
+
+- `nix build` can't build derivations, only Nix expressions that produce derivations. In this mode, the plugin runs a Nix evaluation at the beginning of the build in order to generate the necessary `nix build` commands, and then each one of those `nix build` commands will _also_ run a Nix evaluation to reduce the constituent installable Nix expressions to their derivations.
+
+- The individual `nix build` commands will generally evaluate much faster than the top level Nix expression in the initial Nix evaluation phase, but all else being equal, each build step will almost certainly take longer than the equivalent build step that uses `nix-store` on the derivation because of the additional time spent in Nix evaluation.
+
+- The difference between `nix build` and `nix-store` in step start-up times is particularly evident when the derivation has already been built. However, by default the plugin will check whether the derivation has already been built, and if so, skip the build (whether via `nix build` or `nix-store`), which eliminates any advantage that using `nix-store` might otherwise have for already-built derivations.
+
+- `nix-store -r` only works when the given derivation's dependencies are already in the local Nix store. Therefore, in order to use this plugin in `nix-store` mode, you must ensure that all steps are run against a single Nix store. In practice, this likely means that either the build must run on a single host, or you're using a distributed filesystem such as NFS to share a Nix store across multiple systems.
+
+- `nix build` will fetch all of its input expression's dependencies before starting a build, so when using this plugin with `use-nix-build: true`, you can take advantage of multiple builders irrespective of whether they share a Nix store.
+
+In general, our advice is:
+
+- If you only have a single Nix build host, or if you have a shared Nix store across multiple build hosts, you should probably set `use-nix-build: false` (the default), as you only need to run the Nix evaluation step once in this mode.
+
+- If you have multiple Nix build hosts that don't share a Nix store, and you need to build multiple derivations with non-trivial build times, you may benefit from `use-nix-build: true`. However, if the derivations in your project tend to build quickly &mdash; say, on the order of a few seconds &mdash; then you may still be better off setting `use-nix-build: false` and running your builds on a single build host, because any benefits you might get from distributing your builds may be swamped by Nix evaluation times, and/or by the overhead of copying derivations from your binary cache to your builders.
