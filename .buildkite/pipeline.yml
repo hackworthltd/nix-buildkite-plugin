@@ -12,13 +12,13 @@ steps:
     env:
       BUILDKITE_PLUGINS_ALWAYS_CLONE_FRESH: "true"
     plugins:
-      - hackworthltd/nix#v2.1.0:
+      - hackworthltd/nix#v2.2.0-b1:
           expr: ".#hydraJobs"
           use-nix-build: "true"
           attr-prefix: ".#hydraJobs."
-          nix-build-opts: --max-jobs 0 --print-build-logs --eval-store auto --store 'ssh-ng://remote-builder@remote-builders.nix-daemon.svc.cluster.local?ssh-key=/etc/secrets/remote-builder-ssh-key'
           nix-eval-jobs-args: --workers 4 --max-memory-size 4GiB --flake --force-recurse
           agent-tags: queue=nix-build,os=linux
+          darwin-step-agent-tags: os=darwin
 
   - wait
 

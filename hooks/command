@@ -12,6 +12,10 @@ if [[ -n "${BUILDKITE_PLUGIN_NIX_AGENT_TAGS:-}" ]]; then
     export AGENT_TAGS="$BUILDKITE_PLUGIN_NIX_AGENT_TAGS"
 fi
 
+if [[ -n "${BUILDKITE_PLUGIN_NIX_DARWIN_STEP_AGENT_TAGS:-}" ]]; then
+    export DARWIN_STEP_AGENT_TAGS="$BUILDKITE_PLUGIN_NIX_DARWIN_STEP_AGENT_TAGS"
+fi
+
 if [[ -n "${BUILDKITE_PLUGIN_NIX_USE_NIX_BUILD:-}" ]]; then
     export USE_NIX_BUILD="$BUILDKITE_PLUGIN_NIX_USE_NIX_BUILD"
 fi
@@ -41,7 +45,7 @@ if [[ -n "${BUILDKITE_PLUGIN_NIX_NIX_STORE_OPTS:-}" ]]; then
 fi
 
 echo "--- :nixos: Running nix-buildkite with nix-eval-jobs"
-PIPELINE=$( nix run 'github:hackworthltd/nix-buildkite-plugin?ref=v2.1.0#with-nix-eval-jobs' -- "$NIX_EXPR" )
+PIPELINE=$( nix run 'github:hackworthltd/nix-buildkite-plugin?ref=v2.2.0-b1#with-nix-eval-jobs' -- "$NIX_EXPR" )
 
 echo "--- :pipeline: Uploading pipeline"
 echo "$PIPELINE" | buildkite-agent pipeline upload
