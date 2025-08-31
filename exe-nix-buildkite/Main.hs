@@ -45,6 +45,18 @@ parseCacheStatus "cached" = Cached
 parseCacheStatus "notBuilt" = NotBuilt
 parseCacheStatus unknown = panic $ "Unknown cache status: " <> unknown
 
+parseAgentTags :: Text -> Either [Char] (Map Text Text)
+parseAgentTags input = do
+  pairs' <- parseOnly pairs input
+  return $ Map.fromList pairs'
+  where
+    pairs = pair `sepBy` ","
+    pair = do
+      key <- takeWhile1 (/= '=')
+      _ <- char '='
+      value <- takeWhile1 (/= ',')
+      return (key, value)
+
 main :: IO ()
 main = do
   nixStoreOpts <- lookupEnv "NIX_STORE_OPTS" <&> maybe mempty (words . toS)
@@ -56,16 +68,18 @@ main = do
     case tags of
       Nothing -> return mempty
       Just tags' -> do
-        case parseOnly pairs $ toS tags' of
+        case parseAgentTags (toS tags') of
           Left err -> panic $ "Failed to parse AGENT_TAGS: " <> toS err
-          Right pairs' -> return $ Map.fromList pairs'
-        where
-          pairs = pair `sepBy` ","
-          pair = do
-            key <- takeWhile1 (/= '=')
-            _ <- char '='
-            value <- takeWhile1 (/= ',')
-            return (key, value)
+          Right pairs' -> return pairs'
+
+  darwinStepAgentTags <- do
+    tags <- lookupEnv "DARWIN_STEP_AGENT_TAGS"
+    case tags of
+      Nothing -> return mempty
+      Just tags' -> do
+        case parseAgentTags (toS tags') of
+          Left err -> panic $ "Failed to parse DARWIN_STEP_AGENT_TAGS: " <> toS err
+          Right pairs' -> return pairs'
 
   -- TODO: this should be made into an option
   -- (and probably should add options for prefixing at all, using emoji, and sorting also)
@@ -94,29 +108,35 @@ main = do
         return (drvs', Map.empty, drvStatusMap')
 
   -- Build an association list of a job name and the derivation that should be
-  -- realised for that job.
-  drvs <- for inputDrvPaths \drvPath ->
-    readFile' drvPath
-      >>= ( \case
-              Left _ ->
-                -- We couldn't parse the derivation to get a name, so we'll just use the
-                -- derivation name.
-                return (takeFileName' drvPath, drvPath)
-              Right drv ->
-                let name = case Map.lookup "name" (env drv) of
-                      -- There was no 'name' environment variable, so we'll just use the
-                      -- derivation name.
-                      Nothing -> takeFileName' drvPath
-                      Just n -> n
-                    system =
-                      if any (`isPrefixOf` name) skipPrefix
-                        then ""
-                        else case Map.lookup "system" (env drv) of
-                          Nothing -> ""
-                          Just s -> emojify s <> ":"
-                 in return (system <> name, drvPath)
-          )
-      . parseOnly parseDerivation
+  -- realised for that job, and also track the system for each derivation.
+  (drvs, drvSystemMap) <- do
+    results <- for inputDrvPaths \drvPath ->
+      readFile' drvPath
+        >>= ( \case
+                Left _ ->
+                  -- We couldn't parse the derivation to get a name, so we'll just use the
+                  -- derivation name.
+                  return (takeFileName' drvPath, drvPath, Nothing)
+                Right drv ->
+                  let name = case Map.lookup "name" (env drv) of
+                        -- There was no 'name' environment variable, so we'll just use the
+                        -- derivation name.
+                        Nothing -> takeFileName' drvPath
+                        Just n -> n
+                      system = Map.lookup "system" (env drv)
+                      emoji =
+                        if any (`isPrefixOf` name) skipPrefix
+                          then ""
+                          else case system of
+                            Nothing -> ""
+                            Just s -> emojify s <> ":"
+                   in return (emoji <> name, drvPath, system)
+            )
+        . parseOnly parseDerivation
+
+    let drvs' = map (\(name, path, _) -> (name, path)) results
+    let drvSystemMap' = Map.fromList [(path, sys) | (_, path, Just sys) <- results]
+    return (drvs', drvSystemMap')
 
   g <- foldr (\(_, drv) m -> m >>= \g -> add g drv) (pure empty) drvs
 
@@ -141,15 +161,29 @@ main = do
           step :: Text -> Text -> (Text, Value)
           step label drvPath =
             ( label
-            , object
+            , object $
                 [ "label" .= label
                 , "command" .= stepCommand drvPath
                 , "key" .= stepify drvPath
                 , "depends_on" .= dependencies
                 ]
+                  ++ agentFields
             )
             where
               dependencies = map stepify $ maybe [] S.toList $ Map.lookup drvPath closureG
+
+              -- Possibly override the agent tags if this is a Darwin
+              -- derivation
+              agentFields =
+                ( [ "agents" .= darwinStepAgentTags
+                  | isDarwinSystem (Map.lookup drvPath drvSystemMap)
+                      && not (Map.null darwinStepAgentTags)
+                  ]
+                )
+
+              isDarwinSystem :: Maybe Text -> Bool
+              isDarwinSystem (Just system) = "darwin" `T.isSuffixOf` system
+              isDarwinSystem Nothing = False
 
           buildCommand :: Text -> Text
           buildCommand drvPath =

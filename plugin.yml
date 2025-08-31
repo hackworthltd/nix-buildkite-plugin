@@ -24,6 +24,8 @@ configuration:
       type: string
     agent-tags:
       type: string
+    darwin-step-agent-tags:
+      type: string
   required:
     - expr
   not:
@@ -37,4 +39,5 @@ configuration:
       - build-build-opts
       - nix-store-opts
       - agent-tags
+      - darwin-step-agent-tags
   additionalProperties: false
