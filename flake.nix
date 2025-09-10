@@ -286,15 +286,14 @@
             };
           };
 
-          packages =
-            {
-              inherit nix-buildkite;
-              inherit with-nix-eval-jobs;
-            }
-            // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
-              inherit nix-buildkite-docker-image;
-            })
-            // haskellNixFlake.packages;
+          packages = {
+            inherit nix-buildkite;
+            inherit with-nix-eval-jobs;
+          }
+          // (pkgs.lib.optionalAttrs (system == "x86_64-linux") {
+            inherit nix-buildkite-docker-image;
+          })
+          // haskellNixFlake.packages;
 
           checks = haskellNixFlake.checks;
 
