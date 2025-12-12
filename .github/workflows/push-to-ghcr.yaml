@@ -26,7 +26,7 @@ jobs:
           fetch-depth: 0
 
       - name: Install & configure Nix
-        uses: cachix/install-nix-action@7be5dee1421f63d07e71ce6e0a9f8a4b07c2a487
+        uses: cachix/install-nix-action@4e002c8ec80594ecd40e759629461e26c8abed15
         with:
           extra_nix_config: |
             trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY= hackworthltd.cachix.org-1:0JTCI0qDo2J+tonOalrSQP3yRNleN6bQucJ05yDltRI= hydra.iohk.io:f/Ea+s+dFdN+3Y/G+FDgSq+a5NEWhJGzdjvKNGv0/EQ= loony-tools:pr9m4BkM/5/eSTZlkQyRt57Jz7OMBxNSUiMC4FkcNfk=
