@@ -44,6 +44,10 @@ if [[ -n "${BUILDKITE_PLUGIN_NIX_NIX_STORE_OPTS:-}" ]]; then
     export NIX_STORE_OPTS="$BUILDKITE_PLUGIN_NIX_NIX_STORE_OPTS"
 fi
 
+if [[ -n "${BUILDKITE_PLUGIN_NIX_KUBERNETES_POD_TEMPLATE:-}" ]]; then
+    export KUBERNETES_POD_TEMPLATE="$BUILDKITE_PLUGIN_NIX_KUBERNETES_POD_TEMPLATE"
+fi
+
 echo "--- :nixos: Running nix-buildkite with nix-eval-jobs"
 PIPELINE=$( nix run 'github:hackworthltd/nix-buildkite-plugin?ref=v2.2.0#with-nix-eval-jobs' -- "$NIX_EXPR" )
 
