@@ -149,6 +149,29 @@ steps:
 
 Note that this option is ignored when `use-nix-build` is `true`.
 
+## `kubernetes-pod-template`
+
+When `kubernetes-pod-template` is set, then when the plugin generates the dynamic Buildkite pipeline, it will use the [Buildkite Kubernetes plugin](https://github.com/buildkite/agent-stack-k8s) on every step in the pipeline that builds a Linux derivation/attribute, and provide the value of this option to the Kubernetes plugin. For example, given the following use of the `nix-buildkite` pipeline:
+
+```yaml
+steps:
+  - command: nix-buildkite
+    label: ":nixos: :buildkite:"
+    plugins:
+      - hackworthltd/nix#v2.2.0:
+          expr: jobs.nix
+          use-nix-build: "true"
+          kubernetes-pod-template: nix-rootless
+```
+
+then every step in the resulting pipeline that builds a Linux attribute will include the following stanza:
+
+```yaml
+plugins:
+  - kubernetes:
+      podTemplate: nix-rootless
+```
+
 # FAQ
 
 ## Should I use `nix build`, or `nix-store`?

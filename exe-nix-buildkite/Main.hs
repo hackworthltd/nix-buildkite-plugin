@@ -15,6 +15,7 @@ import Data.Map qualified as Map
 import Data.Set qualified as S
 import Data.Text (isPrefixOf)
 import Data.Text qualified as T
+import Data.Vector qualified as V
 import Nix.Derivation (
   Derivation (Derivation, env, inputDrvs),
   parseDerivationWith,
@@ -62,6 +63,8 @@ main = do
   nixStoreOpts <- lookupEnv "NIX_STORE_OPTS" <&> maybe mempty (words . toS)
 
   nixBuildOpts <- lookupEnv "NIX_BUILD_OPTS" <&> maybe mempty (words . toS)
+
+  kubernetesPodTemplate <- lookupEnv "KUBERNETES_POD_TEMPLATE" <&> fmap toS
 
   agentTags <- do
     tags <- lookupEnv "AGENT_TAGS"
@@ -168,6 +171,7 @@ main = do
                 , "depends_on" .= dependencies
                 ]
                   ++ agentFields
+                  ++ kubernetesPluginFields
             )
             where
               dependencies = map stepify $ maybe [] S.toList $ Map.lookup drvPath closureG
@@ -175,15 +179,38 @@ main = do
               -- Possibly override the agent tags if this is a Darwin
               -- derivation
               agentFields =
-                ( [ "agents" .= darwinStepAgentTags
-                  | isDarwinSystem (Map.lookup drvPath drvSystemMap)
-                      && not (Map.null darwinStepAgentTags)
-                  ]
-                )
+                [ "agents" .= darwinStepAgentTags
+                | isDarwinSystem (Map.lookup drvPath drvSystemMap)
+                , not (Map.null darwinStepAgentTags)
+                ]
+
+              -- Optionally add the agent-stack-k8s kubernetes plugin
+              -- for Linux steps
+              kubernetesPluginFields =
+                [ "plugins"
+                    .= Array
+                      ( V.fromList
+                          [ object
+                              [ "kubernetes"
+                                  .= object
+                                    [ "podTemplate" .= String tpl
+                                    ]
+                              ]
+                          ]
+                      )
+                | isLinuxSystem (Map.lookup drvPath drvSystemMap)
+                , Just tpl' <- [kubernetesPodTemplate]
+                , let tpl = T.strip tpl'
+                , not (T.null tpl)
+                ]
 
               isDarwinSystem :: Maybe Text -> Bool
               isDarwinSystem (Just system) = "darwin" `T.isSuffixOf` system
               isDarwinSystem Nothing = False
+
+              isLinuxSystem :: Maybe Text -> Bool
+              isLinuxSystem (Just system) = "linux" `T.isSuffixOf` system
+              isLinuxSystem Nothing = False
 
           buildCommand :: Text -> Text
           buildCommand drvPath =
