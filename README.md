@@ -151,7 +151,7 @@ Note that this option is ignored when `use-nix-build` is `true`.
 
 ## `kubernetes-pod-template`
 
-When `kubernetes-pod-template` is set, then when the plugin generates the dynamic Buildkite pipeline, it will use the [Buildkite Kubernetes plugin](https://github.com/buildkite/agent-stack-k8s) on every step in the pipeline that builds a Linux derivation/attribute, and provide the value of this option to the Kubernetes plugin. For example, given the following use of the `nix-buildkite` pipeline:
+When `kubernetes-pod-template` is set, then when the plugin generates the dynamic Buildkite pipeline, it will use the [Buildkite Kubernetes plugin](https://github.com/buildkite/agent-stack-k8s) on every step in the pipeline, and provide the value of this option to the Kubernetes plugin. For example, given the following use of the `nix-buildkite` pipeline:
 
 ```yaml
 steps:
@@ -164,7 +164,7 @@ steps:
           kubernetes-pod-template: nix-rootless
 ```
 
-then every step in the resulting pipeline that builds a Linux attribute will include the following stanza:
+then every step in the resulting pipeline will include the following stanza:
 
 ```yaml
 plugins:

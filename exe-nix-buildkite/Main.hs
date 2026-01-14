@@ -185,7 +185,6 @@ main = do
                 ]
 
               -- Optionally add the agent-stack-k8s kubernetes plugin
-              -- for Linux steps
               kubernetesPluginFields =
                 [ "plugins"
                     .= Array
@@ -198,8 +197,7 @@ main = do
                               ]
                           ]
                       )
-                | isLinuxSystem (Map.lookup drvPath drvSystemMap)
-                , Just tpl' <- [kubernetesPodTemplate]
+                | Just tpl' <- [kubernetesPodTemplate]
                 , let tpl = T.strip tpl'
                 , not (T.null tpl)
                 ]
@@ -207,10 +205,6 @@ main = do
               isDarwinSystem :: Maybe Text -> Bool
               isDarwinSystem (Just system) = "darwin" `T.isSuffixOf` system
               isDarwinSystem Nothing = False
-
-              isLinuxSystem :: Maybe Text -> Bool
-              isLinuxSystem (Just system) = "linux" `T.isSuffixOf` system
-              isLinuxSystem Nothing = False
 
           buildCommand :: Text -> Text
           buildCommand drvPath =
