@@ -26,7 +26,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: jobs.nix
 ```
 
@@ -68,7 +68,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: ".#hydraJobs"
           use-nix-build: "true"
           attr-prefix: ".#hydraJobs."
@@ -90,7 +90,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: ".#hydraJobs"
           nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --force-recurse
 ```
@@ -109,7 +109,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: ".#hydraJobs.required"
           nix-eval-jobs-args: --workers 8 --max-memory-size 8GiB --flake --constituents
           jq-filter: .drvPath, .constituents[]
@@ -128,7 +128,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: jobs.nix
           nix-build-opts: --post-build-hook /etc/nix/upload-to-cache.sh
 ```
@@ -144,7 +144,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: jobs.nix
           nix-store-opts: --post-build-hook /etc/nix/upload-to-cache.sh
 ```
@@ -160,7 +160,7 @@ steps:
   - command: nix-buildkite
     label: ":nixos: :buildkite:"
     plugins:
-      - hackworthltd/nix#v2.3.0:
+      - hackworthltd/nix#v2.4.0:
           expr: jobs.nix
           use-nix-build: "true"
           kubernetes-pod-template: nix-rootless
